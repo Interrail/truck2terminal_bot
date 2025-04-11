@@ -1,0 +1,15 @@
+{
+    "editor.fontSize": 15,
+    "editor.fontFamily": "DejaVu Sans Mono",
+    "editor.fontLigatures": false,
+    "editor.lineHeight": 20,
+    "editor.cursorWidth": 2,
+    "editor.cursorBlinking": "solid",
+    "editor.tabSize": 4,
+    "editor.wordWrap": "on",
+    "editor.renderWhitespace": "none",
+    "editor.minimap.enabled": false,
+    "editor.renderLineHighlight": "all",
+    "editor.bracketPairColorization.enabled": true,
+    "editor.guides.bracketPairs": true
+}

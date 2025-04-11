@@ -6,7 +6,7 @@ import ssl
 from typing import TYPE_CHECKING, Any
 
 import backoff
-from aiohttp import ClientError, ClientSession, TCPConnector, FormData
+from aiohttp import ClientError, ClientSession, FormData, TCPConnector
 from ujson import dumps, loads
 
 if TYPE_CHECKING:
