@@ -321,7 +321,7 @@ async def process_last_name(message: Message, state: FSMContext):
 
 
 @user_router.message(RegistrationWizard.waiting_for_truck_number)
-async def process_truck_number(message: Message, state: FSMContext):
+async def process_truck_number(message: Message, state: FSMContext, api_client=None):
     truck_number = message.text.strip()
     data = await state.get_data()
     lang = data.get("preferred_language", "uz")
@@ -339,7 +339,8 @@ async def process_truck_number(message: Message, state: FSMContext):
         )
         return
     await state.update_data(truck_number=truck_number)
-    api = MyApi()
+    # Use the shared API client from middleware instead of creating a new one
+    api = api_client or MyApi()
     payload = {
         "telegram_id": message.from_user.id,
         "phone_number": phone,

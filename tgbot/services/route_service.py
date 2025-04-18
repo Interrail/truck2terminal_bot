@@ -9,8 +9,9 @@ TERMINALS = {"ULS": 1, "FTT": 2, "MTT": 3}
 class RouteService:
     """Service for handling route-related operations."""
 
-    def __init__(self):
-        self.api = MyApi()
+    def __init__(self, api_client=None):
+        # Use the provided API client or create a new one if none is provided
+        self.api = api_client or MyApi()
         self._terminals_cache = None
 
     async def get_terminals(self, access_token: str) -> Dict[str, int]:

@@ -15,13 +15,14 @@ profile_router = Router()
         REPLY_TRANSLATIONS["ru"]["my_profile"],
     ]
 )
-async def show_my_profile(message: Message, state: FSMContext):
+async def show_my_profile(message: Message, state: FSMContext, api_client=None):
     """
     Handler to show user's profile info when 'my_profile' button is pressed.
     """
 
     print("Fetching user profile...")
-    api = MyApi()
+    # Use the shared API client from middleware instead of creating a new one
+    api = api_client or MyApi()
     try:
         profile = await api.get_user_profile(message.from_user.id)
         lang = profile.get("preferred_language", "ru")

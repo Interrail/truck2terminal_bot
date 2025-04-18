@@ -112,7 +112,7 @@ async def cancel_support_request(callback: CallbackQuery, state: FSMContext):
 
 
 @support_router.message(SupportStates.waiting_for_question)
-async def process_support_question(message: Message, state: FSMContext):
+async def process_support_question(message: Message, state: FSMContext, api_client=None):
     """
     Process the support question and notify admins.
     """
@@ -127,7 +127,8 @@ async def process_support_question(message: Message, state: FSMContext):
     # Store the question in state or database
     # For simplicity, we'll use the API to store the support request
     try:
-        api = MyApi()
+        # Use the shared API client from middleware instead of creating a new one
+        api = api_client or MyApi()
         await api.create_support_request(
             user_id=user_id,
             username=username,
@@ -277,13 +278,14 @@ async def process_admin_reply(message: Message, state: FSMContext):
 
 # Command for admins to view active support requests
 @support_router.message(F.text == "/support_requests", AdminFilter())
-async def list_support_requests(message: Message):
+async def list_support_requests(message: Message, api_client=None):
     """
     List all active support requests for admin.
     """
     try:
         # Fetch support requests from API or database
-        api = MyApi()
+        # Use the shared API client from middleware instead of creating a new one
+        api = api_client or MyApi()
         requests = await api.get_support_requests()
 
         if not requests:

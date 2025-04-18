@@ -126,14 +126,15 @@ def terminal_location_keyboard(
 
 
 @terminals_router.message(F.text.in_(["Терминалы", "Terminallar"]))
-async def terminals_menu(message: Message, state: FSMContext):
+async def terminals_menu(message: Message, state: FSMContext, api_client=None):
     # Set state to viewing terminals
     await state.set_state(TerminalStates.viewing_terminals)
 
     # Initialize API and fetch terminals
     data = await state.get_data()
     lang = data.get("language", "ru")
-    api = MyApi()
+    # Use the shared API client from middleware instead of creating a new one
+    api = api_client or MyApi()
     terminals = await api.get_terminals(telegram_id=message.from_user.id)
 
     if not terminals:
@@ -153,7 +154,10 @@ async def terminals_menu(message: Message, state: FSMContext):
 
 @terminals_router.callback_query(TerminalCallbackFactory.filter())
 async def terminal_selected(
-    call: CallbackQuery, callback_data: TerminalCallbackFactory, state: FSMContext
+    call: CallbackQuery,
+    callback_data: TerminalCallbackFactory,
+    state: FSMContext,
+    api_client=None,
 ):
     """
     Handler for terminal selection - shows terminal details.
@@ -164,7 +168,8 @@ async def terminal_selected(
 
     # Get terminal details directly from API
     terminal_id = int(callback_data.terminal_id)
-    api = MyApi()
+    # Use the shared API client from middleware instead of creating a new one
+    api = api_client or MyApi()
 
     try:
         # Fetch specific terminal details using the new API endpoint
@@ -203,7 +208,10 @@ async def terminal_selected(
 
 @terminals_router.callback_query(LocationCallbackFactory.filter())
 async def terminal_location(
-    call: CallbackQuery, callback_data: LocationCallbackFactory, state: FSMContext
+    call: CallbackQuery,
+    callback_data: LocationCallbackFactory,
+    state: FSMContext,
+    api_client=None,
 ):
     """
     Handler for location button - sends terminal location.
@@ -214,7 +222,8 @@ async def terminal_location(
 
     # Get terminal details directly from API
     terminal_id = int(callback_data.terminal_id)
-    api = MyApi()
+    # Use the shared API client from middleware instead of creating a new one
+    api = api_client or MyApi()
 
     try:
         # Fetch specific terminal details using the new API endpoint
@@ -252,7 +261,7 @@ async def terminal_location(
 
 
 @terminals_router.callback_query(BackToTerminalsCallbackFactory.filter())
-async def back_to_terminals(call: CallbackQuery, state: FSMContext):
+async def back_to_terminals(call: CallbackQuery, state: FSMContext, api_client=None):
     """
     Handler for back button - returns to terminal list.
     """
@@ -263,7 +272,8 @@ async def back_to_terminals(call: CallbackQuery, state: FSMContext):
     await state.set_state(TerminalStates.viewing_terminals)
 
     # Fetch fresh terminal list
-    api = MyApi()
+    # Use the shared API client from middleware instead of creating a new one
+    api = api_client or MyApi()
     try:
         terminals = await api.get_terminals(telegram_id=call.from_user.id)
 
