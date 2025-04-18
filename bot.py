@@ -97,16 +97,13 @@ async def main():
     config = load_config(".env")
     storage = get_storage(config)
 
-    bot = Bot(token=config.tg_bot.token)
-    dp = Dispatcher(storage=storage)
-
-    dp.include_routers(*routers_list)
-
-    register_global_middlewares(dp, config)
-
-    await delete_webhook(bot)
-    await on_startup(bot, config.tg_bot.admin_ids)
-    await dp.start_polling(bot)
+    async with Bot(token=config.tg_bot.token) as bot:
+        dp = Dispatcher(storage=storage)
+        dp.include_routers(*routers_list)
+        register_global_middlewares(dp, config)
+        await delete_webhook(bot)
+        await on_startup(bot, config.tg_bot.admin_ids)
+        await dp.start_polling(bot)
 
 
 if __name__ == "__main__":
