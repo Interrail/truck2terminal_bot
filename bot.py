@@ -9,7 +9,9 @@ from aiogram.fsm.storage.redis import DefaultKeyBuilder, RedisStorage
 from tgbot.config import Config, load_config
 from tgbot.handlers import routers_list
 from tgbot.middlewares.config import ConfigMiddleware
+from tgbot.middlewares.api import ApiMiddleware
 from tgbot.services import broadcaster
+from infrastructure.some_api.api import MyApi
 
 
 async def on_startup(bot: Bot, admin_ids: list[int]):
@@ -24,7 +26,16 @@ async def delete_webhook(bot: Bot):
     logging.info("Webhook deleted before polling.")
 
 
-def register_global_middlewares(dp: Dispatcher, config: Config, session_pool=None):
+async def on_shutdown(api_client):
+    """
+    Gracefully close API client when bot shuts down.
+    """
+    if api_client:
+        await api_client.close()
+        logging.info("API client closed successfully")
+
+
+def register_global_middlewares(dp: Dispatcher, config: Config, api_client=None, session_pool=None):
     """
     Register global middlewares for the given dispatcher.
     Global middlewares here are the ones that are applied to all the handlers (you specify the type of update)
@@ -32,6 +43,7 @@ def register_global_middlewares(dp: Dispatcher, config: Config, session_pool=Non
     :param dp: The dispatcher instance.
     :type dp: Dispatcher
     :param config: The configuration object from the loaded configuration.
+    :param api_client: API client instance to be passed to handlers.
     :param session_pool: Optional session pool object for the database using SQLAlchemy.
     :return: None
     """
@@ -39,6 +51,9 @@ def register_global_middlewares(dp: Dispatcher, config: Config, session_pool=Non
         ConfigMiddleware(config),
         # DatabaseMiddleware(session_pool),
     ]
+    
+    if api_client:
+        middleware_types.append(ApiMiddleware(api_client))
 
     for middleware_type in middleware_types:
         dp.message.outer_middleware(middleware_type)
@@ -96,14 +111,16 @@ async def main():
 
     config = load_config(".env")
     storage = get_storage(config)
+    api_client = MyApi()
 
     async with Bot(token=config.tg_bot.token) as bot:
         dp = Dispatcher(storage=storage)
         dp.include_routers(*routers_list)
-        register_global_middlewares(dp, config)
+        register_global_middlewares(dp, config, api_client)
         await delete_webhook(bot)
         await on_startup(bot, config.tg_bot.admin_ids)
         await dp.start_polling(bot)
+    await on_shutdown(api_client)
 
 
 if __name__ == "__main__":

@@ -144,12 +144,13 @@ def get_contact_keyboard(language):
 
 
 @user_router.message(CommandStart())
-async def user_start(message: Message, state: FSMContext):
+async def user_start(message: Message, state: FSMContext, api_client=None):
     """
     Start command handler. Checks if user is already registered.
     If registered, shows main menu. Otherwise, attempts login. If login fails, shows registration button.
     """
-    api = MyApi()
+    # Use the shared API client from middleware instead of creating a new one
+    api = api_client or MyApi()
 
     try:
         login_result = await api.telegram_login(message.from_user.id)
