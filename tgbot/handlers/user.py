@@ -1,5 +1,5 @@
 import aiohttp
-from aiogram import Router
+from aiogram import F, Router
 from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -8,7 +8,6 @@ from aiogram.types import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     KeyboardButton,
-    Location,
     Message,
     ReplyKeyboardMarkup,
 )
@@ -239,11 +238,8 @@ async def process_phone(message: Message, state: FSMContext, api_client, languag
         return
     await state.update_data(phone_number=contact.phone_number)
     await state.set_state(RegistrationWizard.waiting_for_first_name)
-    summary = f"<b>📱 {contact.phone_number}</b>"
     await message.answer(
-        summary
-        + "\n\n"
-        + ("Ismingizni kiriting:" if language == "uz" else "Введите ваше имя:"),
+        ("Ismingizni kiriting:" if language == "uz" else "Введите ваше имя:"),
         reply_markup=ReplyKeyboardMarkup(
             keyboard=[[]], resize_keyboard=True, one_time_keyboard=True
         ),
@@ -264,11 +260,8 @@ async def process_first_name(message: Message, state: FSMContext, api_client, la
         return
     await state.update_data(first_name=first_name)
     await state.set_state(RegistrationWizard.waiting_for_last_name)
-    summary = f"<b>📱 {message.contact.phone_number}</b>\n<b>👤 {first_name}</b>"
     await message.answer(
-        summary
-        + "\n\n"
-        + ("Familiyangizni kiriting:" if language == "uz" else "Введите вашу фамилию:"),
+        ("Familiyangizni kiriting:" if language == "uz" else "Введите вашу фамилию:"),
         reply_markup=ReplyKeyboardMarkup(
             keyboard=[[]], resize_keyboard=True, one_time_keyboard=True
         ),
@@ -289,13 +282,8 @@ async def process_last_name(message: Message, state: FSMContext, api_client, lan
         return
     await state.update_data(last_name=last_name)
     await state.set_state(RegistrationWizard.waiting_for_truck_number)
-    summary = (
-        f"<b>📱 {message.contact.phone_number}</b>\n<b>👤 {message.text.strip()}</b>"
-    )
     await message.answer(
-        summary
-        + "\n\n"
-        + (
+        (
             "Yuk mashina raqamini kiriting:"
             if language == "uz"
             else "Введите номер грузовика:"
@@ -326,11 +314,6 @@ async def process_truck_number(
     try:
         api = api_client or MyApi()
         await api.telegram_auth(**registration_data)
-        summary = (
-            f"<b>📱 {data.get('phone_number', '')}</b>\n"
-            f"<b>👤 {data.get('first_name', '')} {data.get('last_name', '')}</b>\n"
-            f"<b>🚚 {truck_number}</b>"
-        )
         await message.answer(
             TRANSLATIONS[language]["registration_success"].format(
                 data.get("first_name", "")
@@ -346,7 +329,7 @@ async def process_truck_number(
         )
 
 
-@user_router.message(Location())
+@user_router.message(F.location)
 async def handle_location(message: Message, state: FSMContext, api_client, language):
     loc = message.location
     if loc:
