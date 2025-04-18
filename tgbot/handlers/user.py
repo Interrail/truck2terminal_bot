@@ -339,3 +339,26 @@ async def handle_location(message: Message, state: FSMContext, api_client, langu
         else:
             await message.reply(TRANSLATIONS[language]["location_received"])
         # Optionally: save or forward the location to your backend here
+
+
+@user_router.message(
+    lambda m: m.text
+    and ("Lokatsiyani yuborish" in m.text or "Отправить локацию" in m.text)
+)
+async def ask_for_live_location(
+    message: Message, state: FSMContext, api_client, language
+):
+    if language == "uz":
+        prompt = (
+            "📍 Iltimos, quyidagi tugmani bosib, 'Jonli lokatsiyani ulashish' ni tanlang."
+            "\nBu orqali biz sizning harakatlaringizni real vaqtda kuzatamiz."
+        )
+    else:
+        prompt = (
+            "📍 Пожалуйста, нажмите кнопку ниже и выберите 'Поделиться живой локацией'."
+            "\nЭто позволит нам отслеживать ваше местоположение в реальном времени."
+        )
+    await message.answer(
+        prompt,
+        reply_markup=simple_menu_keyboard(language),
+    )
