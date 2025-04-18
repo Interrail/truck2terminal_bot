@@ -8,6 +8,7 @@ from aiogram.types import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     KeyboardButton,
+    Location,
     Message,
     ReplyKeyboardMarkup,
 )
@@ -67,6 +68,8 @@ TRANSLATIONS = {
         "terminals_error": "❌ <b>Terminallar ma'lumotlarini olishda xatolik yuz berdi.</b> Iltimos, keyinroq qayta urinib ko'ring.",
         "show_on_map": "🗺️ Xaritada ko'rsatish",
         "back": "⬅️ Orqaga",
+        "location_received": "Lokatsiya qabul qilindi!",
+        "live_location_received": "Jonli lokatsiya qabul qilindi! Rahmat.",
     },
     "ru": {
         "welcome": "<b>Добро пожаловать в Truck2Terminal!</b> Пожалуйста, выберите язык.",
@@ -89,6 +92,8 @@ TRANSLATIONS = {
         "terminals_error": "❌ <b>Ошибка при получении информации о терминалах.</b> Пожалуйста, попробуйте позже.",
         "show_on_map": "🗺️ Показать на карте",
         "back": "⬅️ Назад",
+        "location_received": "Локация получена!",
+        "live_location_received": "Живая локация получена! Спасибо.",
     },
 }
 
@@ -339,3 +344,15 @@ async def process_truck_number(
             TRANSLATIONS[language]["registration_failed"].format(str(e)),
             parse_mode="HTML",
         )
+
+
+@user_router.message(Location())
+async def handle_location(message: Message, state: FSMContext, api_client, language):
+    loc = message.location
+    if loc:
+        is_live = loc.live_period is not None
+        if is_live:
+            await message.reply(TRANSLATIONS[language]["live_location_received"])
+        else:
+            await message.reply(TRANSLATIONS[language]["location_received"])
+        # Optionally: save or forward the location to your backend here
