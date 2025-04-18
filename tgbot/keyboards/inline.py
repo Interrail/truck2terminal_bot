@@ -8,6 +8,7 @@ INLINE_TRANSLATIONS = {
         "settings": "Sozlamalar",
         "support": "Qo'llab-quvvatlash",
         "send_route_details": "Yo'nalish tafsilotlarini yuborish",
+        "share_location": "Joylashuvni ulashish",
     },
     "ru": {
         "my_profile": "Мой профиль",
@@ -15,6 +16,7 @@ INLINE_TRANSLATIONS = {
         "settings": "Настройки",
         "support": "Поддержка",
         "send_route_details": "Отправить детали маршрута",
+        "share_location": "Поделиться местоположением",
     },
 }
 
@@ -72,6 +74,29 @@ def send_route_details_keyboard(language_code: str = "ru") -> InlineKeyboardMark
                 InlineKeyboardButton(
                     text=INLINE_TRANSLATIONS[language_code]["send_route_details"],
                     callback_data="send_route_details",
+                ),
+            ]
+        ]
+    )
+    return keyboard
+
+
+def location_tracking_keyboard(language_code: str = "ru") -> InlineKeyboardMarkup:
+    """
+    Creates a keyboard for location tracking.
+
+    Args:
+        language_code: User's selected language code (defaults to Russian)
+
+    Returns:
+        InlineKeyboardMarkup: A keyboard with a button to share location in the selected language.
+    """
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=INLINE_TRANSLATIONS[language_code]["share_location"],
+                    callback_data="share_location",
                 ),
             ]
         ]

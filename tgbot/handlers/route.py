@@ -1,18 +1,26 @@
+import logging
+
 from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import (
     CallbackQuery,
+    KeyboardButton,
     Message,
+    ReplyKeyboardMarkup,
     ReplyKeyboardRemove,
 )
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram3_calendar import SimpleCalendar, simple_cal_callback
 
-from tgbot.keyboards.inline import send_route_details_keyboard
+from tgbot.keyboards.inline import (
+    location_tracking_keyboard,
+    send_route_details_keyboard,
+)
 from tgbot.services.route_service import TERMINALS, RouteService
 
 route_router = Router()
+logger = logging.getLogger(__name__)
 
 
 class RouteStates(StatesGroup):
@@ -26,6 +34,7 @@ class RouteStates(StatesGroup):
     waiting_for_container_size = State()
     waiting_for_container_type = State()
     finish_route = State()
+    live_location = State()
 
 
 LOCATION_CHOICES = [
@@ -72,6 +81,7 @@ ROUTE_TRANSLATIONS = {
         "eta_selected": "🚚 Yuk mashinasi: <b>{}</b>\n📍 Boshlang'ich joy: <b>{}</b>\n🏢 Terminal: <b>{}</b>\n⏱ Taxminiy kelish vaqti: <b>{}</b>",
         "container_name_received": "🚚 Yuk mashinasi: <b>{}</b>\n📍 Boshlang'ich joy: <b>{}</b>\n🏢 Terminal: <b>{}</b>\n⏱ Taxminiy kelish vaqti: <b>{}</b>\n📦 Konteyner: <b>{}</b>",
         "container_size_selected": "🚚 Yuk mashinasi: <b>{}</b>\n📍 Boshlang'ich joy: <b>{}</b>\n🏢 Terminal: <b>{}</b>\n⏱ Taxminiy kelish vaqti: <b>{}</b>\n📦 Konteyner: <b>{}</b> (<b>{}</b>ft)",
+        "live_location": "📍 Joylashuvni ulashish uchun joylashuvni ulashing.",
     },
     "ru": {
         "enter_truck_front_number": "🚚 Пожалуйста, введите передний номер грузовика:",
@@ -100,6 +110,7 @@ ROUTE_TRANSLATIONS = {
         "eta_selected": "🚚 Грузовик: <b>{}</b>\n📍 Начальное местоположение: <b>{}</b>\n🏢 Терминал: <b>{}</b>\n⏱ Ожидаемое время прибытия: <b>{}</b>",
         "container_name_received": "🚚 Грузовик: <b>{}</b>\n📍 Начальное местоположение: <b>{}</b>\n🏢 Терминал: <b>{}</b>\n⏱ Ожидаемое время прибытия: <b>{}</b>\n📦 Контейнер: <b>{}</b>",
         "container_size_selected": "🚚 Грузовик: <b>{}</b>\n📍 Начальное местоположение: <b>{}</b>\n🏢 Терминал: <b>{}</b>\n⏱ Ожидаемое время прибытия: <b>{}</b>\n📦 Контейнер: <b>{}</b> (<b>{}</b>фт)",
+        "live_location": "📍 Укажите местоположение, чтобы отправить его в реальном времени.",
     },
 }
 
@@ -391,7 +402,7 @@ async def process_hour_selection(callback: CallbackQuery, state: FSMContext):
     start_location = user_data.get("start_location", "")
     terminal_name = user_data.get("terminal", "")
 
-    # Create minutes keyboard (00, 15, 30, 45)
+    # Show minutes keyboard (00, 15, 30, 45)
     keyboard = InlineKeyboardBuilder()
     for minute in ["00", "15", "30", "45"]:
         keyboard.button(
@@ -732,10 +743,13 @@ async def process_send_route_details(
                 if data["container_type"] == "laden"
                 else ROUTE_TRANSLATIONS[language]["empty"],
             )
+            await state.update_data(route_id=result["route_id"])
             await callback.message.edit_text(
                 success_message,
+                reply_markup=location_tracking_keyboard(language),
                 parse_mode="HTML",
             )
+
         else:
             await callback.message.edit_text(
                 ROUTE_TRANSLATIONS[language]["route_failed"].format(result),
@@ -766,9 +780,64 @@ async def process_send_route_details(
         # Remove None values
         preserved_data = {k: v for k, v in preserved_data.items() if v is not None}
 
-        # Clear the state
-        await state.clear()
-
         # Restore the preserved data
         if preserved_data:
             await state.update_data(**preserved_data)
+
+
+@route_router.callback_query(RouteStates.finish_route, F.data == "share_location")
+async def process_share_location(
+    callback: CallbackQuery, state: FSMContext, api_client, language
+):
+    await state.set_state(RouteStates.live_location)
+
+
+@route_router.message(F.location)
+async def process_live_location(message: Message, state: FSMContext, api_client):
+    """
+    Process the live location message.
+    Extracts location data and sends it to the API.
+    """
+    # Get state data with truck_number and user info
+    data = await state.get_data()
+    route_id = data.get("route_id")
+
+    # Extract location data - the location is in message.location
+    location = message.location
+    latitude = location.latitude
+    longitude = location.longitude
+
+    # Check if this is a live location
+    is_live = getattr(location, "live_period", 0) > 0
+    location_type = "Live" if is_live else "Static"
+
+    # Optional: horizontal accuracy (only in newer Telegram versions)
+    horizontal_accuracy = getattr(location, "horizontal_accuracy", None)
+    # Optional: heading (only for live locations in newer Telegram versions)
+    heading = getattr(location, "heading", None)
+
+    # Log the location data for debugging
+    logger.info(
+        f"Received {location_type} location: lat={latitude}, lon={longitude}, "
+        f"accuracy={horizontal_accuracy}, heading={heading}"
+    )
+    if route_id is not None:
+        # Prepare the payload for the API
+
+        payload = {
+            "route_id": route_id,
+            "latitude": latitude,
+            "longitude": longitude,
+            "heading": heading,
+        }
+
+        # Send the location data to your API
+        await api_client.post_location(payload)
+    text_message = (
+        f"{payload['route_id']},{payload['latitude']}, {payload['longitude']}"
+    )
+    # Send confirmation message to user
+    await message.reply(
+        text_message,
+        parse_mode="HTML",
+    )

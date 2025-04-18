@@ -169,6 +169,15 @@ class MyApi(BaseClient):
         )
         return result
 
+    async def post_location(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Send location data to the API."""
+        _, result = await self._make_request(
+            method="POST",
+            url="/api/routes/locations/telegram_update/",
+            json=payload,
+        )
+        return result
+
     @backoff.on_exception(
         backoff.expo,
         aiohttp.ClientError,
