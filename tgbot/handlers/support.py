@@ -35,6 +35,8 @@ SUPPORT_TRANSLATIONS = {
         "reply_sent": "✅ <b>Javobingiz foydalanuvchiga yuborildi!</b>",
         "new_reply": "📨 <b>Qo'llab-quvvatlashdan yangi xabar:</b>\n\n{}",
         "cancel": "❌ Bekor qilish",
+        "support": "Qo'llab-quvvatlash",
+        "list_requests": "So'rovlar ro'yxati",
     },
     "ru": {
         "ask_question": "<b>Введите ваш вопрос или опишите проблему.</b> Мы постараемся ответить как можно скорее.",
@@ -48,19 +50,17 @@ SUPPORT_TRANSLATIONS = {
         "reply_sent": "✅ <b>Ваш ответ отправлен пользователю!</b>",
         "new_reply": "📨 <b>Новое сообщение от поддержки:</b>\n\n{}",
         "cancel": "❌ Отмена",
+        "support": "Поддержка",
+        "list_requests": "Список запросов",
     },
 }
 
 
-@support_router.message(F.text.in_(["Qo'llab-quvvatlash", "Поддержка"]))
-async def start_support_request(message: Message, state: FSMContext):
+@support_router.message(F.text.in_({SUPPORT_TRANSLATIONS["uz"]["support"], SUPPORT_TRANSLATIONS["ru"]["support"]}))
+async def start_support_request(message: Message, state: FSMContext, language):
     """
     Start the support request process.
     """
-    # Get user language
-    user_data = await state.get_data()
-    language_code = user_data.get("language", "ru")  # Default to Russian if not set
-
     # Set state to waiting for question
     await state.set_state(SupportStates.waiting_for_question)
 
@@ -69,7 +69,7 @@ async def start_support_request(message: Message, state: FSMContext):
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text=SUPPORT_TRANSLATIONS[language_code]["cancel"],
+                    text=SUPPORT_TRANSLATIONS[language]["cancel"],
                     callback_data="support:cancel",
                 )
             ]
@@ -78,50 +78,44 @@ async def start_support_request(message: Message, state: FSMContext):
 
     # Ask for the question
     await message.reply(
-        SUPPORT_TRANSLATIONS[language_code]["ask_question"],
+        SUPPORT_TRANSLATIONS[language]["ask_question"],
         reply_markup=keyboard,
         parse_mode="HTML",
     )
 
 
 @support_router.callback_query(F.data == "support:cancel")
-async def cancel_support_request(callback: CallbackQuery, state: FSMContext):
+async def cancel_support_request(callback: CallbackQuery, state: FSMContext, language):
     """
     Cancel the support request process.
     """
     await callback.answer()
-
-    # Get user language
-    user_data = await state.get_data()
-    language_code = user_data.get("language", "ru")
 
     # Clear the state
     await state.clear()
 
     # Return to main menu
     await callback.message.edit_text(
-        SUPPORT_TRANSLATIONS[language_code]["ask_question"] + "\n\n❌ <b>Отменено</b>",
+        SUPPORT_TRANSLATIONS[language]["ask_question"] + "\n\n❌ <b>Отменено</b>",
         parse_mode="HTML",
     )
 
     # Show main menu
     await callback.message.answer(
         "👋",
-        reply_markup=simple_menu_keyboard(language_code),
+        reply_markup=simple_menu_keyboard(language),
     )
 
 
 @support_router.message(SupportStates.waiting_for_question)
-async def process_support_question(message: Message, state: FSMContext, api_client=None):
+async def process_support_question(message: Message, state: FSMContext, api_client, language):
     """
     Process the support question and notify admins.
     """
     # Get user data
-    user_data = await state.get_data()
-    language_code = user_data.get("language", "ru")
     user_id = message.from_user.id
     username = message.from_user.username or ""
-    first_name = user_data.get("first_name", message.from_user.first_name or "")
+    first_name = message.from_user.first_name or ""
     question = message.text
 
     # Store the question in state or database
@@ -134,7 +128,7 @@ async def process_support_question(message: Message, state: FSMContext, api_clie
             username=username,
             first_name=first_name,
             question=question,
-            language_code=language_code,
+            language_code=language,
         )
     except Exception as e:
         print(f"Error creating support request: {e}")
@@ -144,8 +138,8 @@ async def process_support_question(message: Message, state: FSMContext, api_clie
 
     # Confirm receipt of question
     await message.reply(
-        SUPPORT_TRANSLATIONS[language_code]["question_received"],
-        reply_markup=simple_menu_keyboard(language_code),
+        SUPPORT_TRANSLATIONS[language]["question_received"],
+        reply_markup=simple_menu_keyboard(language),
         parse_mode="HTML",
     )
 
@@ -160,7 +154,7 @@ async def process_support_question(message: Message, state: FSMContext, api_clie
             inline_keyboard=[
                 [
                     InlineKeyboardButton(
-                        text=SUPPORT_TRANSLATIONS["ru"]["reply_button"],
+                        text=SUPPORT_TRANSLATIONS[language]["reply_button"],
                         callback_data=f"support:reply:{user_id}",
                     )
                 ]
@@ -169,9 +163,9 @@ async def process_support_question(message: Message, state: FSMContext, api_clie
 
         # Format message for admin
         admin_message = (
-            f"{SUPPORT_TRANSLATIONS['ru']['support_requests']}\n\n"
-            f"{SUPPORT_TRANSLATIONS['ru']['from_user'].format(first_name)} (@{username})\n"
-            f"{SUPPORT_TRANSLATIONS['ru']['question'].format(question)}"
+            f"{SUPPORT_TRANSLATIONS[language]['support_requests']}\n\n"
+            f"{SUPPORT_TRANSLATIONS[language]['from_user'].format(first_name)} (@{username})\n"
+            f"{SUPPORT_TRANSLATIONS[language]['question'].format(question)}"
         )
 
         try:
@@ -188,7 +182,7 @@ async def process_support_question(message: Message, state: FSMContext, api_clie
 
 # Admin handlers for responding to support requests
 @support_router.callback_query(F.data.startswith("support:reply:"))
-async def admin_reply_to_support(callback: CallbackQuery, state: FSMContext):
+async def admin_reply_to_support(callback: CallbackQuery, state: FSMContext, language):
     """
     Handle admin's request to reply to a support question.
     """
@@ -206,7 +200,7 @@ async def admin_reply_to_support(callback: CallbackQuery, state: FSMContext):
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text=SUPPORT_TRANSLATIONS["ru"]["cancel"],
+                    text=SUPPORT_TRANSLATIONS[language]["cancel"],
                     callback_data="support:cancel_reply",
                 )
             ]
@@ -215,7 +209,7 @@ async def admin_reply_to_support(callback: CallbackQuery, state: FSMContext):
 
     # Prompt admin for reply
     await callback.message.reply(
-        SUPPORT_TRANSLATIONS["ru"]["enter_reply"],
+        SUPPORT_TRANSLATIONS[language]["enter_reply"],
         reply_markup=keyboard,
         parse_mode="HTML",
     )
@@ -224,7 +218,7 @@ async def admin_reply_to_support(callback: CallbackQuery, state: FSMContext):
 @support_router.callback_query(
     SupportStates.waiting_for_admin_reply, F.data == "support:cancel_reply"
 )
-async def cancel_admin_reply(callback: CallbackQuery, state: FSMContext):
+async def cancel_admin_reply(callback: CallbackQuery, state: FSMContext, language):
     """
     Cancel the admin reply process.
     """
@@ -235,13 +229,13 @@ async def cancel_admin_reply(callback: CallbackQuery, state: FSMContext):
 
     # Confirm cancellation
     await callback.message.edit_text(
-        SUPPORT_TRANSLATIONS["ru"]["enter_reply"] + "\n\n❌ <b>Отменено</b>",
+        SUPPORT_TRANSLATIONS[language]["enter_reply"] + "\n\n❌ <b>Отменено</b>",
         parse_mode="HTML",
     )
 
 
 @support_router.message(SupportStates.waiting_for_admin_reply)
-async def process_admin_reply(message: Message, state: FSMContext):
+async def process_admin_reply(message: Message, state: FSMContext, language):
     """
     Process admin's reply to a support question and send it to the user.
     """
@@ -260,13 +254,13 @@ async def process_admin_reply(message: Message, state: FSMContext):
         # Send the reply to the user
         await message.bot.send_message(
             chat_id=int(user_id),
-            text=SUPPORT_TRANSLATIONS["ru"]["new_reply"].format(reply_text),
+            text=SUPPORT_TRANSLATIONS[language]["new_reply"].format(reply_text),
             parse_mode="HTML",
         )
 
         # Confirm to admin that reply was sent
         await message.reply(
-            SUPPORT_TRANSLATIONS["ru"]["reply_sent"],
+            SUPPORT_TRANSLATIONS[language]["reply_sent"],
             parse_mode="HTML",
         )
     except Exception as e:
@@ -277,8 +271,8 @@ async def process_admin_reply(message: Message, state: FSMContext):
 
 
 # Command for admins to view active support requests
-@support_router.message(F.text == "/support_requests", AdminFilter())
-async def list_support_requests(message: Message, api_client=None):
+@support_router.message(F.text.in_({SUPPORT_TRANSLATIONS["uz"]["list_requests"], SUPPORT_TRANSLATIONS["ru"]["list_requests"]}))
+async def list_support_requests(message: Message, state: FSMContext, api_client, language):
     """
     List all active support requests for admin.
     """
@@ -290,7 +284,7 @@ async def list_support_requests(message: Message, api_client=None):
 
         if not requests:
             await message.reply(
-                SUPPORT_TRANSLATIONS["ru"]["no_active_requests"],
+                SUPPORT_TRANSLATIONS[language]["no_active_requests"],
                 parse_mode="HTML",
             )
             return
@@ -307,7 +301,7 @@ async def list_support_requests(message: Message, api_client=None):
                 inline_keyboard=[
                     [
                         InlineKeyboardButton(
-                            text=SUPPORT_TRANSLATIONS["ru"]["reply_button"],
+                            text=SUPPORT_TRANSLATIONS[language]["reply_button"],
                             callback_data=f"support:reply:{user_id}",
                         )
                     ]
@@ -316,8 +310,8 @@ async def list_support_requests(message: Message, api_client=None):
 
             # Format message
             admin_message = (
-                f"{SUPPORT_TRANSLATIONS['ru']['from_user'].format(first_name)} (@{username})\n"
-                f"{SUPPORT_TRANSLATIONS['ru']['question'].format(question)}"
+                f"{SUPPORT_TRANSLATIONS[language]['from_user'].format(first_name)} (@{username})\n"
+                f"{SUPPORT_TRANSLATIONS[language]['question'].format(question)}"
             )
 
             await message.reply(

@@ -10,6 +10,7 @@ from tgbot.config import Config, load_config
 from tgbot.handlers import routers_list
 from tgbot.middlewares.config import ConfigMiddleware
 from tgbot.middlewares.api import ApiMiddleware
+from tgbot.middlewares.language import LanguageMiddleware
 from tgbot.services import broadcaster
 from infrastructure.some_api.api import MyApi
 
@@ -54,6 +55,7 @@ def register_global_middlewares(dp: Dispatcher, config: Config, api_client=None,
     
     if api_client:
         middleware_types.append(ApiMiddleware(api_client))
+        middleware_types.append(LanguageMiddleware())
 
     for middleware_type in middleware_types:
         dp.message.outer_middleware(middleware_type)

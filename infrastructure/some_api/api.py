@@ -147,7 +147,6 @@ class MyApi(BaseClient):
             url="/api/users/telegram-profile/",
             json={"telegram_id": telegram_id, "bot_secret": self.bot_secret},
         )
-        print(result)
         return result
 
     async def get_terminals(self, telegram_id: int) -> List[Dict[str, Any]]:

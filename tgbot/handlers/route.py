@@ -114,38 +114,40 @@ CONTAINER_TYPES = ["laden", "empty"]
 
 
 @route_router.message(F.text.in_({"Yo'nalish qo'shish", "Добавить маршрут"}))
-async def start_route_creation(message: Message, state: FSMContext):
+async def start_route_creation(
+    message: Message, state: FSMContext, api_client, language
+):
     """Start the route creation process with truck number input (front and back)"""
-    user_data = await state.get_data()
-    language_code = user_data.get("language", "ru")
     await state.set_state(RouteStates.waiting_for_truck_front_number)
-    await message.reply(ROUTE_TRANSLATIONS[language_code]["enter_truck_front_number"])
+    await message.reply(ROUTE_TRANSLATIONS[language]["enter_truck_front_number"])
 
 
 @route_router.message(RouteStates.waiting_for_truck_front_number)
-async def process_truck_front_number(message: Message, state: FSMContext):
+async def process_truck_front_number(
+    message: Message, state: FSMContext, api_client, language
+):
     """
     Process truck front number and move to back number input.
     """
     front_number = message.text
     await state.update_data(truck_front_number=front_number)
-    user_data = await state.get_data()
-    language_code = user_data.get("language", "ru")
     await state.set_state(RouteStates.waiting_for_truck_back_number)
-    await message.reply(ROUTE_TRANSLATIONS[language_code]["enter_truck_back_number"])
+    await message.reply(ROUTE_TRANSLATIONS[language]["enter_truck_back_number"])
 
 
 @route_router.message(RouteStates.waiting_for_truck_back_number)
-async def process_truck_back_number(message: Message, state: FSMContext):
+async def process_truck_back_number(
+    message: Message, state: FSMContext, api_client, language
+):
     """
     Process truck back number, combine, and move to start location selection.
     """
     back_number = message.text
-    user_data = await state.get_data()
-    front_number = user_data.get("truck_front_number", "")
+    data = await state.get_data()
+    front_number = data.get("truck_front_number", "")
     truck_number = f"{front_number}/{back_number}"
     await state.update_data(truck_back_number=back_number, truck_number=truck_number)
-    language_code = user_data.get("language", "ru")
+
     # Create location selection keyboard
     keyboard = InlineKeyboardBuilder()
     for location in LOCATION_CHOICES:
@@ -153,8 +155,8 @@ async def process_truck_back_number(message: Message, state: FSMContext):
     keyboard.adjust(2)  # 2 buttons per row
 
     response_text = (
-        f"{ROUTE_TRANSLATIONS[language_code]['truck_number_received'].format(truck_number)}\n\n"
-        f"<b>{ROUTE_TRANSLATIONS[language_code]['choose_start_location']}</b>"
+        f"{ROUTE_TRANSLATIONS[language]['truck_number_received'].format(truck_number)}\n\n"
+        f"<b>{ROUTE_TRANSLATIONS[language]['choose_start_location']}</b>"
     )
     await message.reply(
         response_text,
@@ -687,7 +689,7 @@ async def process_container_type(callback: CallbackQuery, state: FSMContext):
 
 @route_router.callback_query(RouteStates.finish_route, F.data == "send_route_details")
 async def process_send_route_details(
-    callback: CallbackQuery, state: FSMContext, api_client=None
+    callback: CallbackQuery, state: FSMContext, api_client, language
 ):
     """
     Process the final step of route creation.
@@ -696,7 +698,7 @@ async def process_send_route_details(
 
     data = await state.get_data()
     await callback.message.edit_text(
-        ROUTE_TRANSLATIONS[data.get("language", "ru")]["creating_route"],
+        ROUTE_TRANSLATIONS[language]["creating_route"],
         parse_mode="HTML",
     )
 
@@ -718,18 +720,17 @@ async def process_send_route_details(
             access_token=data.get("access_token", ""),
         )
 
-        language_code = data.get("language", "ru")
         if result.get("success"):
-            success_message = ROUTE_TRANSLATIONS[language_code]["route_created"].format(
+            success_message = ROUTE_TRANSLATIONS[language]["route_created"].format(
                 data["truck_number"],
                 data["start_location"],
                 data["terminal"],
                 data["eta"],  # Use the formatted version for display
                 data["container_name"],
                 data["container_size"],
-                ROUTE_TRANSLATIONS[language_code]["laden"]
+                ROUTE_TRANSLATIONS[language]["laden"]
                 if data["container_type"] == "laden"
-                else ROUTE_TRANSLATIONS[language_code]["empty"],
+                else ROUTE_TRANSLATIONS[language]["empty"],
             )
             await callback.message.edit_text(
                 success_message,
@@ -737,13 +738,13 @@ async def process_send_route_details(
             )
         else:
             await callback.message.edit_text(
-                ROUTE_TRANSLATIONS[language_code]["route_failed"].format(result),
+                ROUTE_TRANSLATIONS[language]["route_failed"].format(result),
                 parse_mode="HTML",
             )
 
     except Exception as e:
         await callback.message.edit_text(
-            ROUTE_TRANSLATIONS[language_code]["route_failed"].format(str(e)),
+            ROUTE_TRANSLATIONS[language]["route_failed"].format(str(e)),
             parse_mode="HTML",
         )
     finally:

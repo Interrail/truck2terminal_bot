@@ -126,20 +126,18 @@ def terminal_location_keyboard(
 
 
 @terminals_router.message(F.text.in_(["Терминалы", "Terminallar"]))
-async def terminals_menu(message: Message, state: FSMContext, api_client=None):
+async def terminals_menu(message: Message, state: FSMContext, api_client, language):
     # Set state to viewing terminals
     await state.set_state(TerminalStates.viewing_terminals)
 
     # Initialize API and fetch terminals
-    data = await state.get_data()
-    lang = data.get("language", "ru")
     # Use the shared API client from middleware instead of creating a new one
     api = api_client or MyApi()
     terminals = await api.get_terminals(telegram_id=message.from_user.id)
 
     if not terminals:
         await message.answer(
-            "Терминалы не найдены" if lang == "ru" else "Terminallar topilmadi"
+            "Терминалы не найдены" if language == "ru" else "Terminallar topilmadi"
         )
         return
 
@@ -147,8 +145,8 @@ async def terminals_menu(message: Message, state: FSMContext, api_client=None):
     await state.update_data(terminals=terminals)
 
     await message.answer(
-        "Выберите терминал:" if lang == "ru" else "Terminalni tanlang:",
-        reply_markup=terminals_keyboard(terminals, lang),
+        "Выберите терминал:" if language == "ru" else "Terminalni tanlang:",
+        reply_markup=terminals_keyboard(terminals, language),
     )
 
 
@@ -157,15 +155,12 @@ async def terminal_selected(
     call: CallbackQuery,
     callback_data: TerminalCallbackFactory,
     state: FSMContext,
-    api_client=None,
+    api_client,
+    language,
 ):
     """
     Handler for terminal selection - shows terminal details.
     """
-    # Get user data and language
-    data = await state.get_data()
-    lang = data.get("language", "ru")
-
     # Get terminal details directly from API
     terminal_id = int(callback_data.terminal_id)
     # Use the shared API client from middleware instead of creating a new one
@@ -179,7 +174,7 @@ async def terminal_selected(
 
         if not terminal:
             await call.answer(
-                "Терминал не найден" if lang == "ru" else "Terminal topilmadi",
+                "Терминал не найден" if language == "ru" else "Terminal topilmadi",
                 show_alert=True,
             )
             return
@@ -190,9 +185,9 @@ async def terminal_selected(
 
         # Show terminal details
         await call.message.edit_text(
-            terminal_details_message(terminal, lang),
+            terminal_details_message(terminal, language),
             parse_mode="HTML",
-            reply_markup=terminal_details_keyboard(terminal, lang),
+            reply_markup=terminal_details_keyboard(terminal, language),
         )
         await call.answer()
 
@@ -200,7 +195,7 @@ async def terminal_selected(
         print(f"Terminal details error: {e}")
         await call.answer(
             "Ошибка при получении данных терминала"
-            if lang == "ru"
+            if language == "ru"
             else "Terminal ma'lumotlarini olishda xatolik",
             show_alert=True,
         )
@@ -211,15 +206,12 @@ async def terminal_location(
     call: CallbackQuery,
     callback_data: LocationCallbackFactory,
     state: FSMContext,
-    api_client=None,
+    api_client,
+    language,
 ):
     """
     Handler for location button - sends terminal location.
     """
-    # Get user data and language
-    data = await state.get_data()
-    lang = data.get("language", "ru")
-
     # Get terminal details directly from API
     terminal_id = int(callback_data.terminal_id)
     # Use the shared API client from middleware instead of creating a new one
@@ -237,7 +229,7 @@ async def terminal_location(
             or not terminal.get("longitude")
         ):
             await call.answer(
-                "Локация недоступна" if lang == "ru" else "Joylashuv mavjud emas",
+                "Локация недоступна" if language == "ru" else "Joylashuv mavjud emas",
                 show_alert=True,
             )
             return
@@ -254,20 +246,17 @@ async def terminal_location(
         print(f"Terminal location error: {e}")
         await call.answer(
             "Ошибка при получении локации"
-            if lang == "ru"
+            if language == "ru"
             else "Joylashuvni olishda xatolik",
             show_alert=True,
         )
 
 
 @terminals_router.callback_query(BackToTerminalsCallbackFactory.filter())
-async def back_to_terminals(call: CallbackQuery, state: FSMContext, api_client=None):
+async def back_to_terminals(call: CallbackQuery, state: FSMContext, api_client, language):
     """
     Handler for back button - returns to terminal list.
     """
-    data = await state.get_data()
-    lang = data.get("language", "ru")
-
     # Set state back to viewing terminals list
     await state.set_state(TerminalStates.viewing_terminals)
 
@@ -278,8 +267,8 @@ async def back_to_terminals(call: CallbackQuery, state: FSMContext, api_client=N
         terminals = await api.get_terminals(telegram_id=call.from_user.id)
 
         await call.message.edit_text(
-            "Выберите терминал:" if lang == "ru" else "Terminalni tanlang:",
-            reply_markup=terminals_keyboard(terminals, lang),
+            "Выберите терминал:" if language == "ru" else "Terminalni tanlang:",
+            reply_markup=terminals_keyboard(terminals, language),
         )
         await call.answer()
 
@@ -287,7 +276,7 @@ async def back_to_terminals(call: CallbackQuery, state: FSMContext, api_client=N
         print(f"Terminal list error: {e}")
         await call.answer(
             "Ошибка при получении списка терминалов"
-            if lang == "ru"
+            if language == "ru"
             else "Terminallar ro'yxatini olishda xatolik",
             show_alert=True,
         )

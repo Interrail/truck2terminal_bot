@@ -144,17 +144,11 @@ def get_contact_keyboard(language):
 
 
 @user_router.message(CommandStart())
-async def user_start(message: Message, state: FSMContext, api_client=None):
-    """
-    Start command handler. Checks if user is already registered.
-    If registered, shows main menu. Otherwise, attempts login. If login fails, shows registration button.
-    """
-    # Use the shared API client from middleware instead of creating a new one
+async def user_start(message: Message, state: FSMContext, api_client, language):
     api = api_client or MyApi()
-
     try:
         login_result = await api.telegram_login(message.from_user.id)
-        lang = login_result.get("language", "ru")
+        lang = login_result.get("language", language)
         await message.answer(
             (TRANSLATIONS[lang]["welcome_back"]).format(message.from_user.full_name),
             reply_markup=simple_menu_keyboard(lang),
@@ -163,11 +157,10 @@ async def user_start(message: Message, state: FSMContext, api_client=None):
     except aiohttp.ClientError as e:
         status = getattr(e, "status", None)
         if status == 404:
-            # User not registered, prompt registration
             language_code = (
                 message.from_user.language_code
                 if message.from_user.language_code in ["uz", "ru"]
-                else "uz"
+                else language
             )
             await message.answer(
                 "Registratsiyadan o`tishni istaysizmi ?",
@@ -181,13 +174,13 @@ async def user_start(message: Message, state: FSMContext, api_client=None):
 
 
 @user_router.callback_query(lambda c: c.data == "register:start")
-async def register_start_callback(callback_query: CallbackQuery, state: FSMContext):
+async def register_start_callback(
+    callback_query: CallbackQuery, state: FSMContext, api_client, language
+):
     await state.clear()
     await state.set_state(RegistrationWizard.waiting_for_language)
     await callback_query.message.answer(
-        (TRANSLATIONS["uz"]["select_language"])
-        + "\n"
-        + (TRANSLATIONS["ru"]["select_language"]),
+        (TRANSLATIONS[language]["select_language"]),
         reply_markup=get_language_keyboard(),
         parse_mode="HTML",
     )
@@ -195,24 +188,20 @@ async def register_start_callback(callback_query: CallbackQuery, state: FSMConte
 
 
 @user_router.message(Command("register"))
-async def register_command(message: Message, state: FSMContext):
-    """
-    Explicit registration command. Forces registration regardless of current state.
-    """
+async def register_command(message: Message, state: FSMContext, api_client, language):
     await state.clear()
     await state.set_state(RegistrationWizard.waiting_for_language)
     await message.answer(
-        TRANSLATIONS["uz"]["select_language"]
-        + "\n"
-        + TRANSLATIONS["ru"]["select_language"],
+        TRANSLATIONS[language]["select_language"],
         reply_markup=get_language_keyboard(),
         parse_mode="HTML",
     )
 
 
 @user_router.message(RegistrationWizard.waiting_for_language)
-async def reg_process_language(message: Message, state: FSMContext):
-    # Accept both emoji or text
+async def reg_process_language(
+    message: Message, state: FSMContext, api_client, language
+):
     lang = None
     for k, v in LANGUAGES.items():
         if k in message.text or v in message.text.lower():
@@ -235,23 +224,21 @@ async def reg_process_language(message: Message, state: FSMContext):
 
 
 @user_router.message(RegistrationWizard.waiting_for_phone)
-async def process_phone(message: Message, state: FSMContext):
+async def process_phone(message: Message, state: FSMContext, api_client, language):
     contact = message.contact
-    data = await state.get_data()
-    lang = data.get("language", "uz")
     if not contact or not contact.phone_number:
         await message.reply(
-            TRANSLATIONS[lang]["use_button"], reply_markup=get_phone_keyboard(lang)
+            TRANSLATIONS[language]["use_button"],
+            reply_markup=get_phone_keyboard(language),
         )
         return
     await state.update_data(phone_number=contact.phone_number)
     await state.set_state(RegistrationWizard.waiting_for_first_name)
-    # Summary so far
     summary = f"<b>📱 {contact.phone_number}</b>"
     await message.answer(
         summary
         + "\n\n"
-        + ("Ismingizni kiriting:" if lang == "uz" else "Введите ваше имя:"),
+        + ("Ismingizni kiriting:" if language == "uz" else "Введите ваше имя:"),
         reply_markup=ReplyKeyboardMarkup(
             keyboard=[[]], resize_keyboard=True, one_time_keyboard=True
         ),
@@ -260,26 +247,23 @@ async def process_phone(message: Message, state: FSMContext):
 
 
 @user_router.message(RegistrationWizard.waiting_for_first_name)
-async def process_first_name(message: Message, state: FSMContext):
+async def process_first_name(message: Message, state: FSMContext, api_client, language):
     first_name = message.text.strip()
-    data = await state.get_data()
-    lang = data.get("language", "uz")
-    phone = data.get("phone_number", "")
     if not first_name:
         await message.reply(
-            "Ism bo'sh bo'lishi mumkin emas."
-            if lang == "uz"
-            else "Имя не может быть пустым."
+            "Ismingizni kiriting:" if language == "uz" else "Введите ваше имя:",
+            reply_markup=ReplyKeyboardMarkup(
+                keyboard=[[]], resize_keyboard=True, one_time_keyboard=True
+            ),
         )
         return
     await state.update_data(first_name=first_name)
     await state.set_state(RegistrationWizard.waiting_for_last_name)
-    # Summary so far
-    summary = f"<b>📱 {phone}</b>\n<b>👤 {first_name}</b>"
+    summary = f"<b>📱 {message.contact.phone_number}</b>\n<b>👤 {first_name}</b>"
     await message.answer(
         summary
         + "\n\n"
-        + ("Familiyangizni kiriting:" if lang == "uz" else "Введите вашу фамилию:"),
+        + ("Familiyangizni kiriting:" if language == "uz" else "Введите вашу фамилию:"),
         reply_markup=ReplyKeyboardMarkup(
             keyboard=[[]], resize_keyboard=True, one_time_keyboard=True
         ),
@@ -288,30 +272,28 @@ async def process_first_name(message: Message, state: FSMContext):
 
 
 @user_router.message(RegistrationWizard.waiting_for_last_name)
-async def process_last_name(message: Message, state: FSMContext):
+async def process_last_name(message: Message, state: FSMContext, api_client, language):
     last_name = message.text.strip()
-    data = await state.get_data()
-    lang = data.get("language", "uz")
-    phone = data.get("phone_number", "")
-    first_name = data.get("first_name", "")
     if not last_name:
-        await message.answer(
-            "Familiya bo'sh bo'lishi mumkin emas."
-            if lang == "uz"
-            else "Фамилия не может быть пустой."
+        await message.reply(
+            "Familiyangizni kiriting:" if language == "uz" else "Введите вашу фамилию:",
+            reply_markup=ReplyKeyboardMarkup(
+                keyboard=[[]], resize_keyboard=True, one_time_keyboard=True
+            ),
         )
         return
     await state.update_data(last_name=last_name)
     await state.set_state(RegistrationWizard.waiting_for_truck_number)
-    # Summary so far
-    summary = f"<b>📱 {phone}</b>\n<b>👤 {first_name}</b>\n<b>👤 {last_name}</b>"
+    summary = (
+        f"<b>📱 {message.contact.phone_number}</b>\n<b>👤 {message.text.strip()}</b>"
+    )
     await message.answer(
         summary
         + "\n\n"
         + (
-            "Yuk mashinangiz raqamini kiriting:"
-            if lang == "uz"
-            else "Введите номер вашего грузовика:"
+            "Yuk mashina raqamini kiriting:"
+            if language == "uz"
+            else "Введите номер грузовика:"
         ),
         reply_markup=ReplyKeyboardMarkup(
             keyboard=[[]], resize_keyboard=True, one_time_keyboard=True
@@ -321,60 +303,39 @@ async def process_last_name(message: Message, state: FSMContext):
 
 
 @user_router.message(RegistrationWizard.waiting_for_truck_number)
-async def process_truck_number(message: Message, state: FSMContext, api_client=None):
+async def process_truck_number(
+    message: Message, state: FSMContext, api_client, language
+):
     truck_number = message.text.strip()
-    data = await state.get_data()
-    lang = data.get("language", "uz")
-    phone = data.get("phone_number", "")
-    first_name = data.get("first_name", "")
-    last_name = data.get("last_name", "")
-    if not truck_number:
-        await message.reply(
-            "Yuk mashinangiz raqamini kiriting."
-            if lang == "uz"
-            else "Пожалуйста, введите номер грузовика.",
-            reply_markup=ReplyKeyboardMarkup(
-                keyboard=[[]], resize_keyboard=True, one_time_keyboard=True
-            ),
-        )
-        return
     await state.update_data(truck_number=truck_number)
-    # Create user registration data
+    data = await state.get_data()
     registration_data = {
         "telegram_id": message.from_user.id,
-        "phone_number": phone,
-        "first_name": first_name,
-        "last_name": last_name,
+        "phone_number": data.get("phone_number", ""),
+        "first_name": data.get("first_name", ""),
+        "last_name": data.get("last_name", ""),
         "role": "driver",
-        "language": lang,
+        "language": language,
         "truck_number": truck_number,
     }
     try:
-        # Use the shared API client from middleware instead of creating a new one
         api = api_client or MyApi()
         await api.telegram_auth(**registration_data)
-
-        # Final summary
         summary = (
-            f"<b>📱 {phone}</b>\n"
-            f"<b>👤 {first_name}</b>\n"
-            f"<b>👥 {last_name}</b>\n"
+            f"<b>📱 {data.get('phone_number', '')}</b>\n"
+            f"<b>👤 {data.get('first_name', '')} {data.get('last_name', '')}</b>\n"
             f"<b>🚚 {truck_number}</b>"
         )
         await message.answer(
-            summary
-            + "\n\n"
-            + (
-                "Tabriklaymiz, siz muvaffaqiyatli ro'yxatdan o'tdingiz!"
-                if lang == "uz"
-                else "Поздравляем, вы успешно зарегистрированы!"
+            TRANSLATIONS[language]["registration_success"].format(
+                data.get("first_name", "")
             ),
-            reply_markup=simple_menu_keyboard(lang),
+            reply_markup=simple_menu_keyboard(language),
             parse_mode="HTML",
         )
-    except Exception:
+        await state.clear()
+    except Exception as e:
         await message.answer(
-            "⚠️ Ro'yxatdan o'tishda xatolik yuz berdi."
-            if lang == "uz"
-            else "⚠️ Произошла ошибка при регистрации."
+            TRANSLATIONS[language]["registration_failed"].format(str(e)),
+            parse_mode="HTML",
         )

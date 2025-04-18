@@ -15,7 +15,7 @@ profile_router = Router()
         REPLY_TRANSLATIONS["ru"]["my_profile"],
     ]
 )
-async def show_my_profile(message: Message, state: FSMContext, api_client=None):
+async def show_my_profile(message: Message, state: FSMContext, api_client, language):
     """
     Handler to show user's profile info when 'my_profile' button is pressed.
     """
@@ -25,15 +25,14 @@ async def show_my_profile(message: Message, state: FSMContext, api_client=None):
     api = api_client or MyApi()
     try:
         profile = await api.get_user_profile(message.from_user.id)
-        lang = profile.get("language", profile.get("preferred_language", "ru"))
-        # Format profile info
-        if lang == "uz":
+        # Use 'language' directly
+        if language == "uz":
             profile_msg = (
                 f"<b>👤 Ismingiz:</b> {profile.get('first_name', '')}\n"
                 f"<b>👥 Familiyangiz:</b> {profile.get('last_name', '')}\n"
                 f"<b>📱 Telefon:</b> {profile.get('phone_number', '')}\n"
                 f"<b>🚚 Yuk mashina raqami:</b> {profile.get('truck_number', '')}\n"
-                f"<b>🌐 Til:</b> {profile.get('language', profile.get('preferred_language', ''))}\n"
+                f"<b>🌐 Til:</b> {profile.get('preferred_language', '')}\n"
             )
         else:
             profile_msg = (
@@ -41,15 +40,15 @@ async def show_my_profile(message: Message, state: FSMContext, api_client=None):
                 f"<b>👥 Фамилия:</b> {profile.get('last_name', '')}\n"
                 f"<b>📱 Телефон:</b> {profile.get('phone_number', '')}\n"
                 f"<b>🚚 Номер грузовика:</b> {profile.get('truck_number', '')}\n"
-                f"<b>🌐 Язык:</b> {profile.get('language', profile.get('preferred_language', ''))}\n"
+                f"<b>🌐 Язык:</b> {profile.get('preferred_language', '')}\n"
             )
         await message.answer(
-            profile_msg, parse_mode="HTML", reply_markup=simple_menu_keyboard(lang)
+            profile_msg, parse_mode="HTML", reply_markup=simple_menu_keyboard(language)
         )
     except Exception:
         await message.answer(
             "Profil ma'lumotlarini olishda xatolik yuz berdi. Iltimos, qayta urinib ko'ring."
-            if lang == "uz"
+            if language == "uz"
             else "Произошла ошибка при получении профиля. Пожалуйста, попробуйте еще раз.",
-            reply_markup=simple_menu_keyboard(lang if "lang" in locals() else "ru"),
+            reply_markup=simple_menu_keyboard(language),
         )
