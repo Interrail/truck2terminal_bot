@@ -1,5 +1,5 @@
 import aiohttp
-from aiogram import F, Router
+from aiogram import Router
 from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -67,8 +67,6 @@ TRANSLATIONS = {
         "terminals_error": "❌ <b>Terminallar ma'lumotlarini olishda xatolik yuz berdi.</b> Iltimos, keyinroq qayta urinib ko'ring.",
         "show_on_map": "🗺️ Xaritada ko'rsatish",
         "back": "⬅️ Orqaga",
-        "location_received": "Lokatsiya qabul qilindi!",
-        "live_location_received": "Jonli lokatsiya qabul qilindi! Rahmat.",
     },
     "ru": {
         "welcome": "<b>Добро пожаловать в Truck2Terminal!</b> Пожалуйста, выберите язык.",
@@ -91,8 +89,6 @@ TRANSLATIONS = {
         "terminals_error": "❌ <b>Ошибка при получении информации о терминалах.</b> Пожалуйста, попробуйте позже.",
         "show_on_map": "🗺️ Показать на карте",
         "back": "⬅️ Назад",
-        "location_received": "Локация получена!",
-        "live_location_received": "Живая локация получена! Спасибо.",
     },
 }
 
@@ -238,8 +234,11 @@ async def process_phone(message: Message, state: FSMContext, api_client, languag
         return
     await state.update_data(phone_number=contact.phone_number)
     await state.set_state(RegistrationWizard.waiting_for_first_name)
+    summary = f"<b>📱 {contact.phone_number}</b>"
     await message.answer(
-        ("Ismingizni kiriting:" if language == "uz" else "Введите ваше имя:"),
+        summary
+        + "\n\n"
+        + ("Ismingizni kiriting:" if language == "uz" else "Введите ваше имя:"),
         reply_markup=ReplyKeyboardMarkup(
             keyboard=[[]], resize_keyboard=True, one_time_keyboard=True
         ),
@@ -260,8 +259,11 @@ async def process_first_name(message: Message, state: FSMContext, api_client, la
         return
     await state.update_data(first_name=first_name)
     await state.set_state(RegistrationWizard.waiting_for_last_name)
+    summary = f"<b>📱 {message.contact.phone_number}</b>\n<b>👤 {first_name}</b>"
     await message.answer(
-        ("Familiyangizni kiriting:" if language == "uz" else "Введите вашу фамилию:"),
+        summary
+        + "\n\n"
+        + ("Familiyangizni kiriting:" if language == "uz" else "Введите вашу фамилию:"),
         reply_markup=ReplyKeyboardMarkup(
             keyboard=[[]], resize_keyboard=True, one_time_keyboard=True
         ),
@@ -282,8 +284,13 @@ async def process_last_name(message: Message, state: FSMContext, api_client, lan
         return
     await state.update_data(last_name=last_name)
     await state.set_state(RegistrationWizard.waiting_for_truck_number)
+    summary = (
+        f"<b>📱 {message.contact.phone_number}</b>\n<b>👤 {message.text.strip()}</b>"
+    )
     await message.answer(
-        (
+        summary
+        + "\n\n"
+        + (
             "Yuk mashina raqamini kiriting:"
             if language == "uz"
             else "Введите номер грузовика:"
@@ -314,6 +321,11 @@ async def process_truck_number(
     try:
         api = api_client or MyApi()
         await api.telegram_auth(**registration_data)
+        summary = (
+            f"<b>📱 {data.get('phone_number', '')}</b>\n"
+            f"<b>👤 {data.get('first_name', '')} {data.get('last_name', '')}</b>\n"
+            f"<b>🚚 {truck_number}</b>"
+        )
         await message.answer(
             TRANSLATIONS[language]["registration_success"].format(
                 data.get("first_name", "")
@@ -327,38 +339,3 @@ async def process_truck_number(
             TRANSLATIONS[language]["registration_failed"].format(str(e)),
             parse_mode="HTML",
         )
-
-
-@user_router.message(F.location)
-async def handle_location(message: Message, state: FSMContext, api_client, language):
-    loc = message.location
-    if loc:
-        is_live = loc.live_period is not None
-        if is_live:
-            await message.reply(TRANSLATIONS[language]["live_location_received"])
-        else:
-            await message.reply(TRANSLATIONS[language]["location_received"])
-        # Optionally: save or forward the location to your backend here
-
-
-@user_router.message(
-    lambda m: m.text
-    and ("Lokatsiyani yuborish" in m.text or "Отправить локацию" in m.text)
-)
-async def ask_for_live_location(
-    message: Message, state: FSMContext, api_client, language
-):
-    if language == "uz":
-        prompt = (
-            "📍 Iltimos, quyidagi tugmani bosib, 'Jonli lokatsiyani ulashish' ni tanlang."
-            "\nBu orqali biz sizning harakatlaringizni real vaqtda kuzatamiz."
-        )
-    else:
-        prompt = (
-            "📍 Пожалуйста, нажмите кнопку ниже и выберите 'Поделиться живой локацией'."
-            "\nЭто позволит нам отслеживать ваше местоположение в реальном времени."
-        )
-    await message.answer(
-        prompt,
-        reply_markup=simple_menu_keyboard(language),
-    )

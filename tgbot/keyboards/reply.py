@@ -11,7 +11,6 @@ REPLY_TRANSLATIONS = {
         "terminal": "Terminallar",
         "language": "Til",
         "back": "Orqaga",
-        "send_location": "📍 Lokatsiyani yuborish",
     },
     "ru": {
         "add_route": "Добавить маршрут",
@@ -22,7 +21,6 @@ REPLY_TRANSLATIONS = {
         "support": "Поддержка",
         "language": "Язык",
         "back": "Назад",
-        "send_location": "📍 Отправить локацию",
     },
 }
 
@@ -46,12 +44,6 @@ def simple_menu_keyboard(language_code: str = "ru") -> ReplyKeyboardMarkup:
             [
                 KeyboardButton(text=REPLY_TRANSLATIONS[language_code]["my_profile"]),
                 KeyboardButton(text=REPLY_TRANSLATIONS[language_code]["support"]),
-            ],
-            [
-                KeyboardButton(
-                    text=REPLY_TRANSLATIONS[language_code]["send_location"],
-                    request_location=True,
-                )
             ],
         ],
         resize_keyboard=True,
