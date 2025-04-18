@@ -225,7 +225,7 @@ async def reg_process_language(message: Message, state: FSMContext):
             parse_mode="HTML",
         )
         return
-    await state.update_data(preferred_language=lang)
+    await state.update_data(language=lang)
     await state.set_state(RegistrationWizard.waiting_for_phone)
     await message.answer(
         TRANSLATIONS[lang]["share_phone"],
@@ -238,7 +238,7 @@ async def reg_process_language(message: Message, state: FSMContext):
 async def process_phone(message: Message, state: FSMContext):
     contact = message.contact
     data = await state.get_data()
-    lang = data.get("preferred_language", "uz")
+    lang = data.get("language", "uz")
     if not contact or not contact.phone_number:
         await message.reply(
             TRANSLATIONS[lang]["use_button"], reply_markup=get_phone_keyboard(lang)
@@ -263,7 +263,7 @@ async def process_phone(message: Message, state: FSMContext):
 async def process_first_name(message: Message, state: FSMContext):
     first_name = message.text.strip()
     data = await state.get_data()
-    lang = data.get("preferred_language", "uz")
+    lang = data.get("language", "uz")
     phone = data.get("phone_number", "")
     if not first_name:
         await message.reply(
@@ -291,7 +291,7 @@ async def process_first_name(message: Message, state: FSMContext):
 async def process_last_name(message: Message, state: FSMContext):
     last_name = message.text.strip()
     data = await state.get_data()
-    lang = data.get("preferred_language", "uz")
+    lang = data.get("language", "uz")
     phone = data.get("phone_number", "")
     first_name = data.get("first_name", "")
     if not last_name:
@@ -324,7 +324,7 @@ async def process_last_name(message: Message, state: FSMContext):
 async def process_truck_number(message: Message, state: FSMContext, api_client=None):
     truck_number = message.text.strip()
     data = await state.get_data()
-    lang = data.get("preferred_language", "uz")
+    lang = data.get("language", "uz")
     phone = data.get("phone_number", "")
     first_name = data.get("first_name", "")
     last_name = data.get("last_name", "")
@@ -339,19 +339,20 @@ async def process_truck_number(message: Message, state: FSMContext, api_client=N
         )
         return
     await state.update_data(truck_number=truck_number)
-    # Use the shared API client from middleware instead of creating a new one
-    api = api_client or MyApi()
-    payload = {
+    # Create user registration data
+    registration_data = {
         "telegram_id": message.from_user.id,
         "phone_number": phone,
         "first_name": first_name,
         "last_name": last_name,
         "role": "driver",
-        "preferred_language": lang,
+        "language": lang,
         "truck_number": truck_number,
     }
     try:
-        await api.telegram_auth(**payload)
+        # Use the shared API client from middleware instead of creating a new one
+        api = api_client or MyApi()
+        await api.telegram_auth(**registration_data)
 
         # Final summary
         summary = (

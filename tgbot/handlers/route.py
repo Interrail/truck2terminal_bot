@@ -150,7 +150,8 @@ async def process_truck_back_number(message: Message, state: FSMContext):
     keyboard = InlineKeyboardBuilder()
     for location in LOCATION_CHOICES:
         keyboard.button(text=location, callback_data=location)
-    keyboard.adjust(2)
+    keyboard.adjust(2)  # 2 buttons per row
+
     response_text = (
         f"{ROUTE_TRANSLATIONS[language_code]['truck_number_received'].format(truck_number)}\n\n"
         f"<b>{ROUTE_TRANSLATIONS[language_code]['choose_start_location']}</b>"
@@ -166,7 +167,9 @@ async def process_truck_back_number(message: Message, state: FSMContext):
 @route_router.callback_query(
     RouteStates.waiting_for_start_location, F.data.in_(LOCATION_CHOICES)
 )
-async def process_start_location(callback: CallbackQuery, state: FSMContext):
+async def process_start_location(
+    callback: CallbackQuery, state: FSMContext, api_client=None
+):
     """
     Process start location selection and move to terminal selection.
     """
@@ -199,7 +202,7 @@ async def process_start_location(callback: CallbackQuery, state: FSMContext):
     )
 
     # Create route service and fetch terminals
-    route_service = RouteService()
+    route_service = RouteService(api_client=api_client)
     try:
         terminals = await route_service.get_terminals(access_token)
 
@@ -683,7 +686,9 @@ async def process_container_type(callback: CallbackQuery, state: FSMContext):
 
 
 @route_router.callback_query(RouteStates.finish_route, F.data == "send_route_details")
-async def process_send_route_details(callback: CallbackQuery, state: FSMContext):
+async def process_send_route_details(
+    callback: CallbackQuery, state: FSMContext, api_client=None
+):
     """
     Process the final step of route creation.
     """
@@ -697,7 +702,8 @@ async def process_send_route_details(callback: CallbackQuery, state: FSMContext)
 
     try:
         # Create route using RouteService
-        route_service = RouteService()
+        # Use the shared API client from middleware instead of creating a new one
+        route_service = RouteService(api_client=api_client)
         result = await route_service.create_route(
             telegram_id=callback.from_user.id,
             truck_number=data.get("truck_number", ""),

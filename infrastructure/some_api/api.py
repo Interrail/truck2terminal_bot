@@ -30,7 +30,7 @@ class MyApi(BaseClient):
         first_name: str = "",
         last_name: str = "",
         role: str = "driver",
-        preferred_language: str = "uz",
+        language: str = "uz",
         truck_number: str = "",
     ) -> Dict[str, Any]:
         """Register or authenticate a user via Telegram ID and phone number.
@@ -41,6 +41,8 @@ class MyApi(BaseClient):
             first_name: User's first name (optional)
             last_name: User's last name (optional)
             role: User's role (default: "driver")
+            language: User's preferred language (default: "uz")
+            truck_number: User's truck number (optional)
 
         Returns:
             Dict containing JWT tokens for authentication
@@ -54,7 +56,7 @@ class MyApi(BaseClient):
                 "first_name": first_name,
                 "last_name": last_name,
                 "role": role,
-                "preferred_language": preferred_language,
+                "preferred_language": language,  # Keep the API field name as is
                 "truck_number": truck_number,
                 "bot_secret": self.bot_secret,
             },

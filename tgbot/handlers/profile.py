@@ -25,7 +25,7 @@ async def show_my_profile(message: Message, state: FSMContext, api_client=None):
     api = api_client or MyApi()
     try:
         profile = await api.get_user_profile(message.from_user.id)
-        lang = profile.get("preferred_language", "ru")
+        lang = profile.get("language", profile.get("preferred_language", "ru"))
         # Format profile info
         if lang == "uz":
             profile_msg = (
@@ -33,7 +33,7 @@ async def show_my_profile(message: Message, state: FSMContext, api_client=None):
                 f"<b>👥 Familiyangiz:</b> {profile.get('last_name', '')}\n"
                 f"<b>📱 Telefon:</b> {profile.get('phone_number', '')}\n"
                 f"<b>🚚 Yuk mashina raqami:</b> {profile.get('truck_number', '')}\n"
-                f"<b>🌐 Til:</b> {profile.get('preferred_language', '')}\n"
+                f"<b>🌐 Til:</b> {profile.get('language', profile.get('preferred_language', ''))}\n"
             )
         else:
             profile_msg = (
@@ -41,7 +41,7 @@ async def show_my_profile(message: Message, state: FSMContext, api_client=None):
                 f"<b>👥 Фамилия:</b> {profile.get('last_name', '')}\n"
                 f"<b>📱 Телефон:</b> {profile.get('phone_number', '')}\n"
                 f"<b>🚚 Номер грузовика:</b> {profile.get('truck_number', '')}\n"
-                f"<b>🌐 Язык:</b> {profile.get('preferred_language', '')}\n"
+                f"<b>🌐 Язык:</b> {profile.get('language', profile.get('preferred_language', ''))}\n"
             )
         await message.answer(
             profile_msg, parse_mode="HTML", reply_markup=simple_menu_keyboard(lang)
