@@ -16,6 +16,14 @@ async def on_startup(bot: Bot, admin_ids: list[int]):
     await broadcaster.broadcast(bot, admin_ids, "Бот запустился!")
 
 
+async def delete_webhook(bot: Bot):
+    """
+    Deletes the webhook for the bot to ensure polling works correctly.
+    """
+    await bot.delete_webhook(drop_pending_updates=True)
+    logging.info("Webhook deleted before polling.")
+
+
 def register_global_middlewares(dp: Dispatcher, config: Config, session_pool=None):
     """
     Register global middlewares for the given dispatcher.
@@ -96,6 +104,7 @@ async def main():
 
     register_global_middlewares(dp, config)
 
+    await delete_webhook(bot)
     await on_startup(bot, config.tg_bot.admin_ids)
     await dp.start_polling(bot)
 
