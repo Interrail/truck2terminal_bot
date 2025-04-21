@@ -226,4 +226,3 @@ class MyApi(BaseClient):
                 if not hasattr(e, "status"):
                     setattr(e, "status", response.status)
                 raise
-    

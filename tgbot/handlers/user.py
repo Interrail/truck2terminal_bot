@@ -258,7 +258,8 @@ async def process_first_name(message: Message, state: FSMContext, api_client, la
         )
         return
     await state.update_data(first_name=first_name)
-    phone_number = await state.get_data().get("phone_number")
+    data = await state.get_data()
+    phone_number = data.get("phone_number")
     await state.set_state(RegistrationWizard.waiting_for_last_name)
     summary = f"<b>📱 {phone_number}</b>\n<b>👤 {first_name}</b>"
     await message.answer(
@@ -285,9 +286,10 @@ async def process_last_name(message: Message, state: FSMContext, api_client, lan
         return
     await state.update_data(last_name=last_name)
     await state.set_state(RegistrationWizard.waiting_for_truck_number)
-    phone_number = await state.get_data().get("phone_number")
-    first_name = await state.get_data().get("first_name")
-    last_name = await state.get_data().get("last_name")
+    data = await state.get_data()
+    phone_number = data.get("phone_number")
+    first_name = data.get("first_name")
+    last_name = data.get("last_name")
     summary = f"<b>📱 {phone_number}</b>\n<b>👤 {first_name} {last_name}</b>"
     await message.answer(
         summary
