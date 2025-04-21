@@ -176,6 +176,7 @@ class MyApi(BaseClient):
             url="/api/routes/locations/telegram_update/",
             json=payload,
         )
+        print(result)
         return result
 
     @backoff.on_exception(
@@ -225,3 +226,4 @@ class MyApi(BaseClient):
                 if not hasattr(e, "status"):
                     setattr(e, "status", response.status)
                 raise
+    

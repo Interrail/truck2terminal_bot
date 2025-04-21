@@ -13,6 +13,7 @@ from aiogram.types import (
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram3_calendar import SimpleCalendar, simple_cal_callback
 
+from infrastructure.some_api.api import MyApi
 from tgbot.keyboards.inline import (
     location_tracking_keyboard,
     send_route_details_keyboard,
@@ -775,25 +776,17 @@ async def process_send_route_details(
             "phone_number": user_data.get("phone_number"),
             "username": user_data.get("username"),
             "role": user_data.get("role"),
+            "route_id": user_data.get("route_id"),
         }
-
-        # Remove None values
         preserved_data = {k: v for k, v in preserved_data.items() if v is not None}
-
+        await state.clear()
         # Restore the preserved data
         if preserved_data:
             await state.update_data(**preserved_data)
 
 
-@route_router.callback_query(RouteStates.finish_route, F.data == "share_location")
-async def process_share_location(
-    callback: CallbackQuery, state: FSMContext, api_client, language
-):
-    await state.set_state(RouteStates.live_location)
-
-
 @route_router.message(F.location)
-async def process_live_location(message: Message, state: FSMContext, api_client):
+async def process_live_location(message: Message, state: FSMContext):
     """
     Process the live location message.
     Extracts location data and sends it to the API.
@@ -807,37 +800,95 @@ async def process_live_location(message: Message, state: FSMContext, api_client)
     latitude = location.latitude
     longitude = location.longitude
 
-    # Check if this is a live location
-    is_live = getattr(location, "live_period", 0) > 0
+    # Check if this is a live location - properly handle None value
+    live_period = getattr(location, "live_period", None)
+    is_live = live_period is not None and live_period > 0
     location_type = "Live" if is_live else "Static"
 
     # Optional: horizontal accuracy (only in newer Telegram versions)
     horizontal_accuracy = getattr(location, "horizontal_accuracy", None)
-    # Optional: heading (only for live locations in newer Telegram versions)
-    heading = getattr(location, "heading", None)
 
     # Log the location data for debugging
     logger.info(
         f"Received {location_type} location: lat={latitude}, lon={longitude}, "
-        f"accuracy={horizontal_accuracy}, heading={heading}"
+        f"accuracy={horizontal_accuracy}"
     )
-    if route_id is not None:
+    if route_id is not None and is_live:
         # Prepare the payload for the API
 
         payload = {
             "route_id": route_id,
             "latitude": latitude,
             "longitude": longitude,
-            "heading": heading,
+            "horizontal_accuracy": "1.0",
         }
 
-        # Send the location data to your API
+        # Only add non-None values
+        if horizontal_accuracy is not None:
+            payload["horizontal_accuracy"] = horizontal_accuracy
+
+        try:
+            api_client = MyApi()
+            # Send the location data to your API
+            await api_client.post_location(payload)
+            text_message = f"{route_id},{latitude}, {longitude}"
+            # Send confirmation message to user
+            await message.reply(
+                text_message,
+                parse_mode="HTML",
+            )
+        except Exception as e:
+            logger.error(f"Error sending location: {str(e)}")
+            await message.reply(
+                f"Error sending location: {str(e)}",
+                parse_mode="HTML",
+            )
+
+
+@route_router.edited_message(F.location)
+async def process_location_update(message: Message, state: FSMContext):
+    """
+    Handle live location updates.
+    Telegram sends edited messages for live location updates.
+    """
+    # Get data from state
+    data = await state.get_data()
+    route_id = data.get("route_id")
+
+    if route_id is None:
+        logger.warning("Received location update but no route_id found in state")
+        return
+
+    # Extract updated location
+    location = message.location
+    latitude = location.latitude
+    longitude = location.longitude
+
+    # Optional fields
+    horizontal_accuracy = getattr(location, "horizontal_accuracy", None)
+
+    # Log the update
+    logger.info(
+        f"Location update for route {route_id}: lat={latitude}, lon={longitude}, "
+        f"accuracy={horizontal_accuracy}"
+    )
+
+    # Prepare payload
+    payload = {
+        "route_id": route_id,
+        "latitude": latitude,
+        "longitude": longitude,
+        "horizontal_accuracy": "1.0",
+    }
+
+    # Add optional fields if they exist
+    if horizontal_accuracy is not None:
+        payload["horizontal_accuracy"] = horizontal_accuracy
+
+    # Send to API
+    try:
+        api_client = MyApi()
         await api_client.post_location(payload)
-    text_message = (
-        f"{payload['route_id']},{payload['latitude']}, {payload['longitude']}"
-    )
-    # Send confirmation message to user
-    await message.reply(
-        text_message,
-        parse_mode="HTML",
-    )
+        logger.info(f"Location update for route {route_id} sent to API successfully")
+    except Exception as e:
+        logger.error(f"Failed to send location update to API: {str(e)}")
