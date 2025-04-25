@@ -1,6 +1,7 @@
 from aiogram import BaseMiddleware
 from aiogram.types import TelegramObject
 
+
 class LanguageMiddleware(BaseMiddleware):
     """Middleware to inject user's preferred language into handler data."""
 
@@ -19,4 +20,5 @@ class LanguageMiddleware(BaseMiddleware):
             except Exception:
                 pass
         data["language"] = language
+        data["truck_number"] = profile.get("truck_number", "")
         return await handler(event, data)

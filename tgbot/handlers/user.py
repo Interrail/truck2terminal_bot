@@ -226,6 +226,8 @@ async def reg_process_language(
 @user_router.message(RegistrationWizard.waiting_for_phone)
 async def process_phone(message: Message, state: FSMContext, api_client, language):
     contact = message.contact
+    state_data = await state.get_data()
+    language = state_data.get("language", language)
     if not contact or not contact.phone_number:
         await message.reply(
             TRANSLATIONS[language]["use_button"],
@@ -249,6 +251,8 @@ async def process_phone(message: Message, state: FSMContext, api_client, languag
 @user_router.message(RegistrationWizard.waiting_for_first_name)
 async def process_first_name(message: Message, state: FSMContext, api_client, language):
     first_name = message.text.strip()
+    state_data = await state.get_data()
+    language = state_data.get("language", language)
     if not first_name:
         await message.reply(
             "Ismingizni kiriting:" if language == "uz" else "Введите ваше имя:",
@@ -258,8 +262,8 @@ async def process_first_name(message: Message, state: FSMContext, api_client, la
         )
         return
     await state.update_data(first_name=first_name)
-    data = await state.get_data()
-    phone_number = data.get("phone_number")
+    state_data = await state.get_data()
+    phone_number = state_data.get("phone_number")
     await state.set_state(RegistrationWizard.waiting_for_last_name)
     summary = f"<b>📱 {phone_number}</b>\n<b>👤 {first_name}</b>"
     await message.answer(
@@ -276,6 +280,8 @@ async def process_first_name(message: Message, state: FSMContext, api_client, la
 @user_router.message(RegistrationWizard.waiting_for_last_name)
 async def process_last_name(message: Message, state: FSMContext, api_client, language):
     last_name = message.text.strip()
+    state_data = await state.get_data()
+    language = state_data.get("language", language)
     if not last_name:
         await message.reply(
             "Familiyangizni kiriting:" if language == "uz" else "Введите вашу фамилию:",
@@ -286,10 +292,9 @@ async def process_last_name(message: Message, state: FSMContext, api_client, lan
         return
     await state.update_data(last_name=last_name)
     await state.set_state(RegistrationWizard.waiting_for_truck_number)
-    data = await state.get_data()
-    phone_number = data.get("phone_number")
-    first_name = data.get("first_name")
-    last_name = data.get("last_name")
+    phone_number = state_data.get("phone_number")
+    first_name = state_data.get("first_name")
+    last_name = state_data.get("last_name")
     summary = f"<b>📱 {phone_number}</b>\n<b>👤 {first_name} {last_name}</b>"
     await message.answer(
         summary
@@ -325,11 +330,6 @@ async def process_truck_number(
     try:
         api = api_client or MyApi()
         await api.telegram_auth(**registration_data)
-        summary = (
-            f"<b>📱 {data.get('phone_number', '')}</b>\n"
-            f"<b>👤 {data.get('first_name', '')} {data.get('last_name', '')}</b>\n"
-            f"<b>🚚 {truck_number}</b>"
-        )
         await message.answer(
             TRANSLATIONS[language]["registration_success"].format(
                 data.get("first_name", "")

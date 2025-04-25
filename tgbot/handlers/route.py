@@ -15,7 +15,6 @@ from aiogram3_calendar import SimpleCalendar, simple_cal_callback
 
 from infrastructure.some_api.api import MyApi
 from tgbot.keyboards.inline import (
-    location_tracking_keyboard,
     send_route_details_keyboard,
 )
 from tgbot.services.route_service import TERMINALS, RouteService
@@ -82,7 +81,8 @@ ROUTE_TRANSLATIONS = {
         "eta_selected": "🚚 Yuk mashinasi: <b>{}</b>\n📍 Boshlang'ich joy: <b>{}</b>\n🏢 Terminal: <b>{}</b>\n⏱ Taxminiy kelish vaqti: <b>{}</b>",
         "container_name_received": "🚚 Yuk mashinasi: <b>{}</b>\n📍 Boshlang'ich joy: <b>{}</b>\n🏢 Terminal: <b>{}</b>\n⏱ Taxminiy kelish vaqti: <b>{}</b>\n📦 Konteyner: <b>{}</b>",
         "container_size_selected": "🚚 Yuk mashinasi: <b>{}</b>\n📍 Boshlang'ich joy: <b>{}</b>\n🏢 Terminal: <b>{}</b>\n⏱ Taxminiy kelish vaqti: <b>{}</b>\n📦 Konteyner: <b>{}</b> (<b>{}</b>ft)",
-        "live_location": "📍 Joylashuvni ulashish uchun joylashuvni ulashing.",
+        "location_tracking": "📍 Joylashuvni real vaqtda ulashing",
+        "location_received_confirmation": "✅ Joylashuvingiz qabul qilindi.",
     },
     "ru": {
         "enter_truck_front_number": "🚚 Пожалуйста, введите передний номер грузовика:",
@@ -111,7 +111,8 @@ ROUTE_TRANSLATIONS = {
         "eta_selected": "🚚 Грузовик: <b>{}</b>\n📍 Начальное местоположение: <b>{}</b>\n🏢 Терминал: <b>{}</b>\n⏱ Ожидаемое время прибытия: <b>{}</b>",
         "container_name_received": "🚚 Грузовик: <b>{}</b>\n📍 Начальное местоположение: <b>{}</b>\n🏢 Терминал: <b>{}</b>\n⏱ Ожидаемое время прибытия: <b>{}</b>\n📦 Контейнер: <b>{}</b>",
         "container_size_selected": "🚚 Грузовик: <b>{}</b>\n📍 Начальное местоположение: <b>{}</b>\n🏢 Терминал: <b>{}</b>\n⏱ Ожидаемое время прибытия: <b>{}</b>\n📦 Контейнер: <b>{}</b> (<b>{}</b>фт)",
-        "live_location": "📍 Укажите местоположение, чтобы отправить его в реальном времени.",
+        "location_tracking": "📍 Укажите местоположение в реальном времени.",
+        "location_received_confirmation": "✅ Ваше местоположение получено.",
     },
 }
 
@@ -127,11 +128,20 @@ CONTAINER_TYPES = ["laden", "empty"]
 
 @route_router.message(F.text.in_({"Yo'nalish qo'shish", "Добавить маршрут"}))
 async def start_route_creation(
-    message: Message, state: FSMContext, api_client, language
+    message: Message, state: FSMContext, api_client, language, truck_number
 ):
     """Start the route creation process with truck number input (front and back)"""
     await state.set_state(RouteStates.waiting_for_truck_front_number)
-    await message.reply(ROUTE_TRANSLATIONS[language]["enter_truck_front_number"])
+    if truck_number:
+        keyboard = InlineKeyboardBuilder()
+        keyboard.button(text=truck_number, callback_data=truck_number)
+        await message.reply(
+            ROUTE_TRANSLATIONS[language]["enter_truck_front_number"],
+            reply_markup=keyboard.as_markup(),
+            parse_mode="HTML",
+        )
+    else:
+        await message.reply(ROUTE_TRANSLATIONS[language]["enter_truck_front_number"])
 
 
 @route_router.message(RouteStates.waiting_for_truck_front_number)
@@ -182,7 +192,7 @@ async def process_truck_back_number(
     RouteStates.waiting_for_start_location, F.data.in_(LOCATION_CHOICES)
 )
 async def process_start_location(
-    callback: CallbackQuery, state: FSMContext, api_client=None
+    callback: CallbackQuery, state: FSMContext, api_client, language
 ):
     """
     Process start location selection and move to terminal selection.
@@ -197,7 +207,6 @@ async def process_start_location(
 
     # Get user language and other data
     user_data = await state.get_data()
-    language_code = user_data.get("language", "ru")  # Default to Russian if not set
     truck_number = user_data.get("truck_number", "")
     access_token = user_data.get("access_token", "")
 
@@ -206,7 +215,7 @@ async def process_start_location(
 
     # Show loading message
     loading_text = (
-        f"{ROUTE_TRANSLATIONS[language_code]['location_selected'].format(truck_number, selected_location)}\n\n"
+        f"{ROUTE_TRANSLATIONS[language]['location_selected'].format(truck_number, selected_location)}\n\n"
         f"<b>Loading terminals...</b>"
     )
 
@@ -231,8 +240,8 @@ async def process_start_location(
 
         # Show accumulated information
         response_text = (
-            f"{ROUTE_TRANSLATIONS[language_code]['location_selected'].format(truck_number, selected_location)}\n\n"
-            f"<b>{ROUTE_TRANSLATIONS[language_code]['select_terminal']}</b>"
+            f"{ROUTE_TRANSLATIONS[language]['location_selected'].format(truck_number, selected_location)}\n\n"
+            f"<b>{ROUTE_TRANSLATIONS[language]['select_terminal']}</b>"
         )
 
         await message.edit_text(
@@ -252,8 +261,8 @@ async def process_start_location(
 
         # Show accumulated information with warning
         response_text = (
-            f"{ROUTE_TRANSLATIONS[language_code]['location_selected'].format(truck_number, selected_location)}\n\n"
-            f"<b>{ROUTE_TRANSLATIONS[language_code]['select_terminal']}</b>"
+            f"{ROUTE_TRANSLATIONS[language]['location_selected'].format(truck_number, selected_location)}\n\n"
+            f"<b>{ROUTE_TRANSLATIONS[language]['select_terminal']}</b>"
         )
 
         await message.edit_text(
@@ -264,7 +273,9 @@ async def process_start_location(
 
 
 @route_router.callback_query(RouteStates.waiting_for_terminal, F.data)
-async def process_terminal_selection(callback: CallbackQuery, state: FSMContext):
+async def process_terminal_selection(
+    callback: CallbackQuery, state: FSMContext, language
+):
     """
     Process terminal selection and move to ETA date input.
     """
@@ -280,9 +291,8 @@ async def process_terminal_selection(callback: CallbackQuery, state: FSMContext)
     # Validate terminal selection
     if terminal_name not in terminals:
         # Invalid terminal selection
-        language_code = user_data.get("language", "ru")
         await callback.message.edit_text(
-            ROUTE_TRANSLATIONS[language_code]["invalid_terminal"],
+            ROUTE_TRANSLATIONS[language]["invalid_terminal"],
             parse_mode="HTML",
         )
         return
@@ -291,7 +301,6 @@ async def process_terminal_selection(callback: CallbackQuery, state: FSMContext)
     await state.update_data(terminal=terminal_name)
 
     # Get user language
-    language_code = user_data.get("language", "ru")  # Default to Russian if not set
     truck_number = user_data.get("truck_number", "")
     start_location = user_data.get("start_location", "")
 
@@ -300,12 +309,13 @@ async def process_terminal_selection(callback: CallbackQuery, state: FSMContext)
 
     # Show accumulated information with calendar
     response_text = (
-        f"{ROUTE_TRANSLATIONS[language_code]['terminal_selected'].format(truck_number, start_location, terminal_name)}\n\n"
-        f"<b>{ROUTE_TRANSLATIONS[language_code]['enter_eta_date']}</b>"
+        f"{ROUTE_TRANSLATIONS[language]['terminal_selected'].format(truck_number, start_location, terminal_name)}\n\n"
+        f"<b>{ROUTE_TRANSLATIONS[language]['enter_eta_date']}</b>"
     )
 
     # Create a calendar for date selection
     calendar = SimpleCalendar()
+
     await callback.message.edit_text(
         response_text,
         reply_markup=await calendar.start_calendar(),
@@ -318,14 +328,13 @@ async def process_terminal_selection(callback: CallbackQuery, state: FSMContext)
     RouteStates.waiting_for_eta_date, simple_cal_callback.filter()
 )
 async def process_calendar_selection(
-    callback: CallbackQuery, callback_data: dict, state: FSMContext
+    callback: CallbackQuery, callback_data: dict, state: FSMContext, language
 ):
     """
     Process the calendar selection for ETA date.
     """
     # Get user data
     user_data = await state.get_data()
-    language_code = user_data.get("language", "ru")
 
     # Initialize the calendar
     calendar = SimpleCalendar()
@@ -350,12 +359,12 @@ async def process_calendar_selection(
 
         # Show time selection keyboard
         await show_time_picker(
-            callback.message, truck_number, start_location, terminal_name, language_code
+            callback.message, truck_number, start_location, terminal_name, language
         )
 
 
 async def show_time_picker(
-    message, truck_number, start_location, terminal_name, language_code
+    message, truck_number, start_location, terminal_name, language
 ):
     """
     Show time picker with inline keyboard.
@@ -370,8 +379,8 @@ async def show_time_picker(
 
     # Show accumulated information with time picker
     response_text = (
-        f"{ROUTE_TRANSLATIONS[language_code]['terminal_selected'].format(truck_number, start_location, terminal_name)}\n\n"
-        f"<b>{ROUTE_TRANSLATIONS[language_code]['enter_eta_time']}</b>"
+        f"{ROUTE_TRANSLATIONS[language]['terminal_selected'].format(truck_number, start_location, terminal_name)}\n\n"
+        f"<b>{ROUTE_TRANSLATIONS[language]['enter_eta_time']}</b>"
     )
 
     await message.edit_text(
@@ -384,7 +393,7 @@ async def show_time_picker(
 @route_router.callback_query(
     RouteStates.waiting_for_eta_time, F.data.startswith("time_hour_")
 )
-async def process_hour_selection(callback: CallbackQuery, state: FSMContext):
+async def process_hour_selection(callback: CallbackQuery, state: FSMContext, language):
     """
     Process hour selection and show minutes selection.
     """
@@ -398,7 +407,6 @@ async def process_hour_selection(callback: CallbackQuery, state: FSMContext):
 
     # Get user data
     user_data = await state.get_data()
-    language_code = user_data.get("language", "ru")
     truck_number = user_data.get("truck_number", "")
     start_location = user_data.get("start_location", "")
     terminal_name = user_data.get("terminal", "")
@@ -417,8 +425,8 @@ async def process_hour_selection(callback: CallbackQuery, state: FSMContext):
 
     # Show accumulated information with minutes picker
     response_text = (
-        f"{ROUTE_TRANSLATIONS[language_code]['terminal_selected'].format(truck_number, start_location, terminal_name)}\n\n"
-        f"<b>{ROUTE_TRANSLATIONS[language_code]['enter_eta_time']}</b>\n"
+        f"{ROUTE_TRANSLATIONS[language]['terminal_selected'].format(truck_number, start_location, terminal_name)}\n\n"
+        f"<b>{ROUTE_TRANSLATIONS[language]['enter_eta_time']}</b>\n"
         f"Selected hour: {selected_hour}"
     )
 
@@ -432,7 +440,9 @@ async def process_hour_selection(callback: CallbackQuery, state: FSMContext):
 @route_router.callback_query(
     RouteStates.waiting_for_eta_time, F.data.startswith("time_minute_")
 )
-async def process_minute_selection(callback: CallbackQuery, state: FSMContext):
+async def process_minute_selection(
+    callback: CallbackQuery, state: FSMContext, language
+):
     """
     Process minute selection and complete time selection.
     """
@@ -452,7 +462,6 @@ async def process_minute_selection(callback: CallbackQuery, state: FSMContext):
     await state.update_data(eta_time=time_str)
 
     # Get other data
-    language_code = user_data.get("language", "ru")
     truck_number = user_data.get("truck_number", "")
     start_location = user_data.get("start_location", "")
     terminal_name = user_data.get("terminal", "")
@@ -467,8 +476,8 @@ async def process_minute_selection(callback: CallbackQuery, state: FSMContext):
 
     # Show prompt for container name input
     response_text = (
-        f"{ROUTE_TRANSLATIONS[language_code]['eta_selected'].format(truck_number, start_location, terminal_name, eta)}\n\n"
-        f"<b>{ROUTE_TRANSLATIONS[language_code]['enter_container_name']}</b>"
+        f"{ROUTE_TRANSLATIONS[language]['eta_selected'].format(truck_number, start_location, terminal_name, eta)}\n\n"
+        f"<b>{ROUTE_TRANSLATIONS[language]['enter_container_name']}</b>"
     )
 
     await callback.message.edit_text(
@@ -480,7 +489,7 @@ async def process_minute_selection(callback: CallbackQuery, state: FSMContext):
 @route_router.callback_query(
     RouteStates.waiting_for_eta_time, F.data == "time_back_to_hours"
 )
-async def back_to_hours(callback: CallbackQuery, state: FSMContext):
+async def back_to_hours(callback: CallbackQuery, state: FSMContext, language):
     """
     Go back to hour selection.
     """
@@ -488,14 +497,13 @@ async def back_to_hours(callback: CallbackQuery, state: FSMContext):
 
     # Get user data
     user_data = await state.get_data()
-    language_code = user_data.get("language", "ru")
     truck_number = user_data.get("truck_number", "")
     start_location = user_data.get("start_location", "")
     terminal_name = user_data.get("terminal", "")
 
     # Show hour selection again
     await show_time_picker(
-        callback.message, truck_number, start_location, terminal_name, language_code
+        callback.message, truck_number, start_location, terminal_name, language
     )
 
 
@@ -507,11 +515,11 @@ async def process_eta_date(message: Message, state: FSMContext):
     """
     # Get user language
     user_data = await state.get_data()
-    language_code = user_data.get("language", "ru")
+    language = user_data.get("language", "ru")
 
     # Remind user to use the calendar
     await message.reply(
-        "<b>Please use the calendar to select a date.</b>",
+        f"{ROUTE_TRANSLATIONS[language]['use_calendar']}",
         parse_mode="HTML",
     )
 
@@ -525,8 +533,8 @@ async def process_eta_date(message: Message, state: FSMContext):
 
     # Show accumulated information with calendar
     response_text = (
-        f"{ROUTE_TRANSLATIONS[language_code]['terminal_selected'].format(truck_number, start_location, terminal_name)}\n\n"
-        f"<b>{ROUTE_TRANSLATIONS[language_code]['enter_eta_date']}</b>"
+        f"{ROUTE_TRANSLATIONS[language]['terminal_selected'].format(truck_number, start_location, terminal_name)}\n\n"
+        f"<b>{ROUTE_TRANSLATIONS[language]['enter_eta_date']}</b>"
     )
 
     await message.reply(
@@ -544,7 +552,7 @@ async def process_eta_time(message: Message, state: FSMContext):
     """
     # Get user data
     user_data = await state.get_data()
-    language_code = user_data.get("language", "ru")
+    language = user_data.get("language", "ru")
     truck_number = user_data.get("truck_number", "")
     start_location = user_data.get("start_location", "")
     terminal_name = user_data.get("terminal", "")
@@ -561,12 +569,12 @@ async def process_eta_time(message: Message, state: FSMContext):
         truck_number,
         start_location,
         terminal_name,
-        language_code,
+        language,
     )
 
 
 @route_router.message(RouteStates.waiting_for_container_name)
-async def process_container_name(message: Message, state: FSMContext):
+async def process_container_name(message: Message, state: FSMContext, language):
     """
     Process container name and move to container size selection.
     """
@@ -576,7 +584,6 @@ async def process_container_name(message: Message, state: FSMContext):
 
     # Get user language and other data
     user_data = await state.get_data()
-    language_code = user_data.get("language", "ru")  # Default to Russian if not set
     truck_number = user_data.get("truck_number", "")
     start_location = user_data.get("start_location", "")
     terminal_name = user_data.get("terminal", "")
@@ -593,8 +600,8 @@ async def process_container_name(message: Message, state: FSMContext):
 
     # Show accumulated information
     response_text = (
-        f"{ROUTE_TRANSLATIONS[language_code]['container_name_received'].format(truck_number, start_location, terminal_name, eta, container_name)}\n\n"
-        f"<b>{ROUTE_TRANSLATIONS[language_code]['select_container_size']}</b>"
+        f"{ROUTE_TRANSLATIONS[language]['container_name_received'].format(truck_number, start_location, terminal_name, eta, container_name)}\n\n"
+        f"<b>{ROUTE_TRANSLATIONS[language]['select_container_size']}</b>"
     )
 
     await message.reply(
@@ -607,7 +614,7 @@ async def process_container_name(message: Message, state: FSMContext):
 @route_router.callback_query(
     RouteStates.waiting_for_container_size, F.data.in_(CONTAINER_SIZES)
 )
-async def process_container_size(callback: CallbackQuery, state: FSMContext):
+async def process_container_size(callback: CallbackQuery, state: FSMContext, language):
     """
     Process container size selection and move to container type selection.
     """
@@ -621,7 +628,6 @@ async def process_container_size(callback: CallbackQuery, state: FSMContext):
 
     # Get user language and other data
     user_data = await state.get_data()
-    language_code = user_data.get("language", "ru")  # Default to Russian if not set
     truck_number = user_data.get("truck_number", "")
     start_location = user_data.get("start_location", "")
     terminal_name = user_data.get("terminal", "")
@@ -635,15 +641,15 @@ async def process_container_size(callback: CallbackQuery, state: FSMContext):
     keyboard = InlineKeyboardBuilder()
     for container_type in CONTAINER_TYPES:
         keyboard.button(
-            text=ROUTE_TRANSLATIONS[language_code][container_type],
+            text=ROUTE_TRANSLATIONS[language][container_type],
             callback_data=container_type,
         )
     keyboard.adjust(2)  # 2 buttons per row
 
     # Show accumulated information
     response_text = (
-        f"{ROUTE_TRANSLATIONS[language_code]['container_size_selected'].format(truck_number, start_location, terminal_name, eta, container_name, container_size)}\n\n"
-        f"<b>{ROUTE_TRANSLATIONS[language_code]['select_container_type']}</b>"
+        f"{ROUTE_TRANSLATIONS[language]['container_size_selected'].format(truck_number, start_location, terminal_name, eta, container_name, container_size)}\n\n"
+        f"<b>{ROUTE_TRANSLATIONS[language]['select_container_type']}</b>"
     )
 
     await callback.message.edit_text(
@@ -656,7 +662,7 @@ async def process_container_size(callback: CallbackQuery, state: FSMContext):
 @route_router.callback_query(
     RouteStates.waiting_for_container_type, F.data.in_(CONTAINER_TYPES)
 )
-async def process_container_type(callback: CallbackQuery, state: FSMContext):
+async def process_container_type(callback: CallbackQuery, state: FSMContext, language):
     """
     Process container type selection and show route details.
     """
@@ -670,7 +676,6 @@ async def process_container_type(callback: CallbackQuery, state: FSMContext):
 
     # Get user language and other data
     user_data = await state.get_data()
-    language_code = user_data.get("language", "ru")  # Default to Russian if not set
     truck_number = user_data.get("truck_number", "")
     start_location = user_data.get("start_location", "")
     terminal_name = user_data.get("terminal", "")
@@ -682,19 +687,19 @@ async def process_container_type(callback: CallbackQuery, state: FSMContext):
     await state.set_state(RouteStates.finish_route)
 
     # Format the route details
-    formatted_details = ROUTE_TRANSLATIONS[language_code]["route_details"].format(
+    formatted_details = ROUTE_TRANSLATIONS[language]["route_details"].format(
         truck_number,
         start_location,
         terminal_name,
         eta,
         container_name,
         container_size,
-        ROUTE_TRANSLATIONS[language_code][container_type],
+        ROUTE_TRANSLATIONS[language][container_type],
     )
 
     await callback.message.edit_text(
         formatted_details,
-        reply_markup=send_route_details_keyboard(language_code),
+        reply_markup=send_route_details_keyboard(language),
         parse_mode="HTML",
     )
 
@@ -744,10 +749,9 @@ async def process_send_route_details(
                 if data["container_type"] == "laden"
                 else ROUTE_TRANSLATIONS[language]["empty"],
             )
-            await state.update_data(route_id=result["route_id"])
+
             await callback.message.edit_text(
                 success_message,
-                reply_markup=location_tracking_keyboard(language),
                 parse_mode="HTML",
             )
 
@@ -769,8 +773,6 @@ async def process_send_route_details(
         # Extract only the important user data that should be preserved
         preserved_data = {
             "user_id": user_data.get("user_id"),
-            "access_token": user_data.get("access_token"),
-            "refresh_token": user_data.get("refresh_token"),
             "language": user_data.get("language"),
             "first_name": user_data.get("first_name"),
             "phone_number": user_data.get("phone_number"),
@@ -779,116 +781,38 @@ async def process_send_route_details(
             "route_id": user_data.get("route_id"),
         }
         preserved_data = {k: v for k, v in preserved_data.items() if v is not None}
-        await state.clear()
+
         # Restore the preserved data
         if preserved_data:
             await state.update_data(**preserved_data)
 
 
-@route_router.message(F.location)
-async def process_live_location(message: Message, state: FSMContext):
+@route_router.callback_query(
+    lambda c: c.data and "/" in c.data and c.data.replace("/", "").isdigit()
+)
+async def process_truck_number_button(
+    callback: CallbackQuery, state: FSMContext, language
+):
     """
-    Process the live location message.
-    Extracts location data and sends it to the API.
+    Handle truck number button press, split by '/' and save both parts to state.
     """
-    # Get state data with truck_number and user info
-    data = await state.get_data()
-    route_id = data.get("route_id")
+    # Create location selection keyboard
+    keyboard = InlineKeyboardBuilder()
+    for location in LOCATION_CHOICES:
+        keyboard.button(text=location, callback_data=location)
+    keyboard.adjust(2)  # 2 buttons per row
 
-    # Extract location data - the location is in message.location
-    location = message.location
-    latitude = location.latitude
-    longitude = location.longitude
-
-    # Check if this is a live location - properly handle None value
-    live_period = getattr(location, "live_period", None)
-    is_live = live_period is not None and live_period > 0
-    location_type = "Live" if is_live else "Static"
-
-    # Optional: horizontal accuracy (only in newer Telegram versions)
-    horizontal_accuracy = getattr(location, "horizontal_accuracy", None)
-
-    # Log the location data for debugging
-    logger.info(
-        f"Received {location_type} location: lat={latitude}, lon={longitude}, "
-        f"accuracy={horizontal_accuracy}"
-    )
-    if route_id is not None and is_live:
-        # Prepare the payload for the API
-
-        payload = {
-            "route_id": route_id,
-            "latitude": latitude,
-            "longitude": longitude,
-            "horizontal_accuracy": "1.0",
-        }
-
-        # Only add non-None values
-        if horizontal_accuracy is not None:
-            payload["horizontal_accuracy"] = horizontal_accuracy
-
-        try:
-            api_client = MyApi()
-            # Send the location data to your API
-            await api_client.post_location(payload)
-            text_message = f"{route_id},{latitude}, {longitude}"
-            # Send confirmation message to user
-            await message.reply(
-                text_message,
-                parse_mode="HTML",
-            )
-        except Exception as e:
-            logger.error(f"Error sending location: {str(e)}")
-            await message.reply(
-                f"Error sending location: {str(e)}",
-                parse_mode="HTML",
-            )
-
-
-@route_router.edited_message(F.location)
-async def process_location_update(message: Message, state: FSMContext):
-    """
-    Handle live location updates.
-    Telegram sends edited messages for live location updates.
-    """
-    # Get data from state
-    data = await state.get_data()
-    route_id = data.get("route_id")
-
-    if route_id is None:
-        logger.warning("Received location update but no route_id found in state")
-        return
-
-    # Extract updated location
-    location = message.location
-    latitude = location.latitude
-    longitude = location.longitude
-
-    # Optional fields
-    horizontal_accuracy = getattr(location, "horizontal_accuracy", None)
-
-    # Log the update
-    logger.info(
-        f"Location update for route {route_id}: lat={latitude}, lon={longitude}, "
-        f"accuracy={horizontal_accuracy}"
-    )
-
-    # Prepare payload
-    payload = {
-        "route_id": route_id,
-        "latitude": latitude,
-        "longitude": longitude,
-        "horizontal_accuracy": "1.0",
-    }
-
-    # Add optional fields if they exist
-    if horizontal_accuracy is not None:
-        payload["horizontal_accuracy"] = horizontal_accuracy
-
-    # Send to API
-    try:
-        api_client = MyApi()
-        await api_client.post_location(payload)
-        logger.info(f"Location update for route {route_id} sent to API successfully")
-    except Exception as e:
-        logger.error(f"Failed to send location update to API: {str(e)}")
+    truck_number = callback.data
+    if "/" in truck_number:
+        front, back = truck_number.split("/", 1)
+        await state.update_data(
+            waiting_for_truck_front_number=front, waiting_for_truck_back_number=back
+        )
+        await state.set_state(RouteStates.waiting_for_start_location)
+        await callback.message.edit_text(
+            ROUTE_TRANSLATIONS[language]["choose_start_location"],
+            parse_mode="HTML",
+            reply_markup=keyboard.as_markup(),
+        )
+    else:
+        await callback.answer("Invalid truck number format.", show_alert=True)
