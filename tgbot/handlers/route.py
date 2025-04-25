@@ -9,6 +9,7 @@ from aiogram.types import (
     Message,
     ReplyKeyboardMarkup,
     ReplyKeyboardRemove,
+    user,
 )
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram3_calendar import SimpleCalendar, simple_cal_callback
@@ -26,7 +27,6 @@ logger = logging.getLogger(__name__)
 class RouteStates(StatesGroup):
     waiting_for_truck_front_number = State()
     waiting_for_truck_back_number = State()
-    waiting_for_start_location = State()
     waiting_for_terminal = State()
     waiting_for_eta_date = State()
     waiting_for_eta_time = State()
@@ -37,28 +37,11 @@ class RouteStates(StatesGroup):
     live_location = State()
 
 
-LOCATION_CHOICES = [
-    ("Tashkent", "Tashkent"),
-    ("Navoi", "Navoi"),
-    ("Samarkand", "Samarkand"),
-    ("Bukhara", "Bukhara"),
-    ("Andijan", "Andijan"),
-    ("Fergana", "Fergana"),
-    ("Namangan", "Namangan"),
-    ("Qarshi", "Qarshi"),
-    ("Termez", "Termez"),
-    ("Urgench", "Urgench"),
-    ("Nukus", "Nukus"),
-    ("Jizzakh", "Jizzakh"),
-]
-
 # Translations for route messages
 ROUTE_TRANSLATIONS = {
     "uz": {
         "enter_truck_front_number": "🚚 Iltimos, yuk mashinasining old raqamini kiriting:",
         "enter_truck_back_number": "🚚 Endi orqa raqamini kiriting:",
-        "choose_start_location": "📍 Boshlang'ich joyni tanlang:",
-        "invalid_location": "⚠️ Iltimos, to'g'ri joyni tanlang.",
         "select_terminal": "🏢 Terminalni tanlang:",
         "invalid_terminal": "⚠️ Iltimos, to'g'ri terminalni tanlang.",
         "enter_eta_date": "📅 Taxminiy kelish sanasini kiriting (YYYY-MM-DD formatida):",
@@ -69,26 +52,23 @@ ROUTE_TRANSLATIONS = {
         "invalid_container_size": "⚠️ Iltimos, to'g'ri konteyner o'lchamini tanlang.",
         "select_container_type": "🔍 Konteyner turini tanlang:",
         "invalid_container_type": "⚠️ Iltimos, to'g'ri konteyner turini tanlang.",
-        "route_details": "📋 <b>Yo'nalish tafsilotlari:</b>\n\n🚚 Yuk mashinasi: <b>{}</b>\n📍 Boshlang'ich joy: <b>{}</b>\n🏢 Terminal: <b>{}</b>\n⏱ Taxminiy kelish vaqti: <b>{}</b>\n📦 Konteyner: <b>{}</b> (<b>{}</b>ft)\n🔍 Turi: <b>{}</b>",
+        "route_details": "📋 <b>Yo'nalish tafsilotlari:</b>\n\n🚚 Yuk mashinasi: <b>{}</b>\n🏢 Terminal: <b>{}</b>\n⏱ Taxminiy kelish vaqti: <b>{}</b>\n📦 Konteyner: <b>{}</b> (<b>{}</b>ft)\n🔍 Turi: <b>{}</b>",
         "creating_route": "⏳ <b>Yo'nalish yaratilmoqda...</b>",
-        "route_created": "✅ <b>Yo'nalish muvaffaqiyatli yaratildi!</b>\n\n🚚 Yuk mashinasi: <b>{}</b>\n📍 Boshlang'ich joy: <b>{}</b>\n🏢 Terminal: <b>{}</b>\n⏱ Taxminiy kelish vaqti: <b>{}</b>\n📦 Konteyner: <b>{}</b> (<b>{}</b>ft)\n🔍 Turi: <b>{}</b>",
+        "route_created": "✅ <b>Yo'nalish muvaffaqiyatli yaratildi!</b>\n\n🚚 Yuk mashinasi: <b>{}</b>\n🏢 Terminal: <b>{}</b>\n⏱ Taxminiy kelish vaqti: <b>{}</b>\n📦 Konteyner: <b>{}</b> (<b>{}</b>ft)\n🔍 Turi: <b>{}</b>",
         "route_failed": "❌ <b>Yo'nalish yaratishda xatolik yuz berdi:</b> {}",
         "laden": "Yuklangan",
         "empty": "Bo'sh",
         "truck_number_received": "🚚 Yuk mashinasi raqami: <b>{}</b>",
-        "location_selected": "🚚 Yuk mashinasi: <b>{}</b>\n📍 Boshlang'ich joy: <b>{}</b>",
-        "terminal_selected": "🚚 Yuk mashinasi: <b>{}</b>\n📍 Boshlang'ich joy: <b>{}</b>\n🏢 Terminal: <b>{}</b>",
-        "eta_selected": "🚚 Yuk mashinasi: <b>{}</b>\n📍 Boshlang'ich joy: <b>{}</b>\n🏢 Terminal: <b>{}</b>\n⏱ Taxminiy kelish vaqti: <b>{}</b>",
-        "container_name_received": "🚚 Yuk mashinasi: <b>{}</b>\n📍 Boshlang'ich joy: <b>{}</b>\n🏢 Terminal: <b>{}</b>\n⏱ Taxminiy kelish vaqti: <b>{}</b>\n📦 Konteyner: <b>{}</b>",
-        "container_size_selected": "🚚 Yuk mashinasi: <b>{}</b>\n📍 Boshlang'ich joy: <b>{}</b>\n🏢 Terminal: <b>{}</b>\n⏱ Taxminiy kelish vaqti: <b>{}</b>\n📦 Konteyner: <b>{}</b> (<b>{}</b>ft)",
-        "location_tracking": "📍 Joylashuvni real vaqtda ulashing",
+        "terminal_selected": "🚚 Yuk mashinasi: <b>{}</b>\n🏢 Terminal: <b>{}</b>",
+        "eta_selected": "🚚 Yuk mashinasi: <b>{}</b>\n🏢 Terminal: <b>{}</b>\n⏱ Taxminiy kelish vaqti: <b>{}</b>",
+        "container_name_received": "🚚 Yuk mashinasi: <b>{}</b>\n🏢 Terminal: <b>{}</b>\n⏱ Taxminiy kelish vaqti: <b>{}</b>\n📦 Konteyner: <b>{}</b>",
+        "container_size_selected": "🚚 Yuk mashinasi: <b>{}</b>\n🏢 Terminal: <b>{}</b>\n⏱ Taxminiy kelish vaqti: <b>{}</b>\n📦 Konteyner: <b>{}</b> (<b>{}</b>ft)",
+        "location_tracking": "📍 Joylashuvni real vaqtda ulashing va qaytadan urinib ko'ring",
         "location_received_confirmation": "✅ Joylashuvingiz qabul qilindi.",
     },
     "ru": {
         "enter_truck_front_number": "🚚 Пожалуйста, введите передний номер грузовика:",
         "enter_truck_back_number": "🚚 Теперь введите задний номер:",
-        "choose_start_location": "📍 Выберите начальное местоположение:",
-        "invalid_location": "⚠️ Пожалуйста, выберите правильное местоположение.",
         "select_terminal": "🏢 Выберите терминал:",
         "invalid_terminal": "⚠️ Пожалуйста, выберите правильный терминал.",
         "enter_eta_date": "📅 Введите дату ожидаемого прибытия (в формате ГГГГ-ММ-ДД):",
@@ -99,25 +79,21 @@ ROUTE_TRANSLATIONS = {
         "invalid_container_size": "⚠️ Пожалуйста, выберите правильный размер контейнера.",
         "select_container_type": "🔍 Выберите тип контейнера:",
         "invalid_container_type": "⚠️ Пожалуйста, выберите правильный тип контейнера.",
-        "route_details": "📋 <b>Детали маршрута:</b>\n\n🚚 Грузовик: <b>{}</b>\n📍 Начальное местоположение: <b>{}</b>\n🏢 Терминал: <b>{}</b>\n⏱ Ожидаемое время прибытия: <b>{}</b>\n📦 Контейнер: <b>{}</b> (<b>{}</b>фт)\n🔍 Тип: <b>{}</b>",
+        "route_details": "📋 <b>Детали маршрута:</b>\n\n🚚 Грузовик: <b>{}</b>\n🏢 Терминал: <b>{}</b>\n⏱ Ожидаемое время прибытия: <b>{}</b>\n📦 Контейнер: <b>{}</b> (<b>{}</b>фт)\n🔍 Тип: <b>{}</b>",
         "creating_route": "⏳ <b>Создание маршрута...</b>",
-        "route_created": "✅ <b>Маршрут успешно создан!</b>\n\n🚚 Грузовик: <b>{}</b>\n📍 Начальное местоположение: <b>{}</b>\n🏢 Терминал: <b>{}</b>\n⏱ Ожидаемое время прибытия: <b>{}</b>\n📦 Контейнер: <b>{}</b> (<b>{}</b>фт)\n🔍 Тип: <b>{}</b>",
+        "route_created": "✅ <b>Маршрут успешно создан!</b>\n\n🚚 Грузовик: <b>{}</b>\n🏢 Терминал: <b>{}</b>\n⏱ Ожидаемое время прибытия: <b>{}</b>\n📦 Контейнер: <b>{}</b> (<b>{}</b>фт)\n🔍 Тип: <b>{}</b>",
         "route_failed": "❌ <b>Не удалось создать маршрут:</b> {}",
         "laden": "Загруженный",
         "empty": "Пустой",
         "truck_number_received": "🚚 Номер грузовика: <b>{}</b>",
-        "location_selected": "🚚 Грузовик: <b>{}</b>\n📍 Начальное местоположение: <b>{}</b>",
-        "terminal_selected": "🚚 Грузовик: <b>{}</b>\n📍 Начальное местоположение: <b>{}</b>\n🏢 Терминал: <b>{}</b>",
-        "eta_selected": "🚚 Грузовик: <b>{}</b>\n📍 Начальное местоположение: <b>{}</b>\n🏢 Терминал: <b>{}</b>\n⏱ Ожидаемое время прибытия: <b>{}</b>",
-        "container_name_received": "🚚 Грузовик: <b>{}</b>\n📍 Начальное местоположение: <b>{}</b>\n🏢 Терминал: <b>{}</b>\n⏱ Ожидаемое время прибытия: <b>{}</b>\n📦 Контейнер: <b>{}</b>",
-        "container_size_selected": "🚚 Грузовик: <b>{}</b>\n📍 Начальное местоположение: <b>{}</b>\n🏢 Терминал: <b>{}</b>\n⏱ Ожидаемое время прибытия: <b>{}</b>\n📦 Контейнер: <b>{}</b> (<b>{}</b>фт)",
-        "location_tracking": "📍 Укажите местоположение в реальном времени.",
+        "terminal_selected": "🚚 Грузовик: <b>{}</b>\n🏢 Терминал: <b>{}</b>",
+        "eta_selected": "🚚 Грузовик: <b>{}</b>\n🏢 Терминал: <b>{}</b>\n⏱ Ожидаемое время прибытия: <b>{}</b>",
+        "container_name_received": "🚚 Грузовик: <b>{}</b>\n🏢 Терминал: <b>{}</b>\n⏱ Ожидаемое время прибытия: <b>{}</b>\n📦 Контейнер: <b>{}</b>",
+        "container_size_selected": "🚚 Грузовик: <b>{}</b>\n🏢 Терминал: <b>{}</b>\n⏱ Ожидаемое время прибытия: <b>{}</b>\n📦 Контейнер: <b>{}</b> (<b>{}</b>фт)",
+        "location_tracking": "📍 Укажите местоположение в реальном времени и Попробуйте снова.",
         "location_received_confirmation": "✅ Ваше местоположение получено.",
     },
 }
-
-# Location choices
-LOCATION_CHOICES = ["Tashkent", "Andijan", "Fergana", "Namangan", "Samarkand"]
 
 # Container size choices
 CONTAINER_SIZES = ["20", "40", "45"]
@@ -131,7 +107,18 @@ async def start_route_creation(
     message: Message, state: FSMContext, api_client, language, truck_number
 ):
     """Start the route creation process with truck number input (front and back)"""
+
+    state_data = await state.get_data()
+    if not state_data.get("latitude") or not state_data.get("longitude"):
+        await message.reply(
+            ROUTE_TRANSLATIONS[language]["location_tracking"],
+            parse_mode="HTML",
+        )
+        return
+
     await state.set_state(RouteStates.waiting_for_truck_front_number)
+    # Always save truck number in FSM state
+
     if truck_number:
         keyboard = InlineKeyboardBuilder()
         keyboard.button(text=truck_number, callback_data=truck_number)
@@ -162,114 +149,38 @@ async def process_truck_back_number(
     message: Message, state: FSMContext, api_client, language
 ):
     """
-    Process truck back number, combine, and move to start location selection.
+    Process truck back number, combine, and move to terminal selection.
     """
     back_number = message.text
     data = await state.get_data()
-    front_number = data.get("truck_front_number", "")
+    front_number = data.get("`truck_front_number`", "")
     truck_number = f"{front_number}/{back_number}"
     await state.update_data(truck_back_number=back_number, truck_number=truck_number)
 
-    # Create location selection keyboard
+    # Fetch terminals (from API or fallback)
+    route_service = RouteService(api_client=api_client)
+    try:
+        terminals = await route_service.get_terminals(message.from_user.id)
+        await state.update_data(terminals=terminals)
+    except Exception as e:
+        print(f"Error fetching terminals: {e}")
+
+    # Create terminal selection keyboard
     keyboard = InlineKeyboardBuilder()
-    for location in LOCATION_CHOICES:
-        keyboard.button(text=location, callback_data=location)
+    for terminal_name, terminal_id in terminals.items():
+        keyboard.button(text=terminal_name, callback_data=terminal_name)
     keyboard.adjust(2)  # 2 buttons per row
 
     response_text = (
         f"{ROUTE_TRANSLATIONS[language]['truck_number_received'].format(truck_number)}\n\n"
-        f"<b>{ROUTE_TRANSLATIONS[language]['choose_start_location']}</b>"
+        f"<b>{ROUTE_TRANSLATIONS[language]['select_terminal']}</b>"
     )
     await message.reply(
         response_text,
         reply_markup=keyboard.as_markup(),
         parse_mode="HTML",
     )
-    await state.set_state(RouteStates.waiting_for_start_location)
-
-
-@route_router.callback_query(
-    RouteStates.waiting_for_start_location, F.data.in_(LOCATION_CHOICES)
-)
-async def process_start_location(
-    callback: CallbackQuery, state: FSMContext, api_client, language
-):
-    """
-    Process start location selection and move to terminal selection.
-    """
-    await callback.answer()
-
-    # Get the selected location
-    selected_location = callback.data
-
-    # Save to state
-    await state.update_data(start_location=selected_location)
-
-    # Get user language and other data
-    user_data = await state.get_data()
-    truck_number = user_data.get("truck_number", "")
-    access_token = user_data.get("access_token", "")
-
-    # Set next state
     await state.set_state(RouteStates.waiting_for_terminal)
-
-    # Show loading message
-    loading_text = (
-        f"{ROUTE_TRANSLATIONS[language]['location_selected'].format(truck_number, selected_location)}\n\n"
-        f"<b>Loading terminals...</b>"
-    )
-
-    message = await callback.message.edit_text(
-        loading_text,
-        parse_mode="HTML",
-    )
-
-    # Create route service and fetch terminals
-    route_service = RouteService(api_client=api_client)
-    try:
-        terminals = await route_service.get_terminals(access_token)
-
-        # Save terminals to state for later use
-        await state.update_data(terminals=terminals)
-
-        # Create terminal selection keyboard
-        keyboard = InlineKeyboardBuilder()
-        for terminal_name, terminal_id in terminals.items():
-            keyboard.button(text=terminal_name, callback_data=terminal_name)
-        keyboard.adjust(2)  # 2 buttons per row
-
-        # Show accumulated information
-        response_text = (
-            f"{ROUTE_TRANSLATIONS[language]['location_selected'].format(truck_number, selected_location)}\n\n"
-            f"<b>{ROUTE_TRANSLATIONS[language]['select_terminal']}</b>"
-        )
-
-        await message.edit_text(
-            response_text,
-            reply_markup=keyboard.as_markup(),
-            parse_mode="HTML",
-        )
-    except Exception as e:
-        # If API fails, fall back to hardcoded terminals
-        print(f"Error fetching terminals: {e}")
-
-        # Create terminal selection keyboard with hardcoded terminals
-        keyboard = InlineKeyboardBuilder()
-        for terminal_name, terminal_id in TERMINALS.items():
-            keyboard.button(text=terminal_name, callback_data=terminal_name)
-        keyboard.adjust(2)  # 2 buttons per row
-
-        # Show accumulated information with warning
-        response_text = (
-            f"{ROUTE_TRANSLATIONS[language]['location_selected'].format(truck_number, selected_location)}\n\n"
-            f"<b>{ROUTE_TRANSLATIONS[language]['select_terminal']}</b>"
-        )
-
-        await message.edit_text(
-            response_text,
-            reply_markup=keyboard.as_markup(),
-            parse_mode="HTML",
-        )
 
 
 @route_router.callback_query(RouteStates.waiting_for_terminal, F.data)
@@ -302,14 +213,13 @@ async def process_terminal_selection(
 
     # Get user language
     truck_number = user_data.get("truck_number", "")
-    start_location = user_data.get("start_location", "")
 
     # Set next state
     await state.set_state(RouteStates.waiting_for_eta_date)
 
     # Show accumulated information with calendar
     response_text = (
-        f"{ROUTE_TRANSLATIONS[language]['terminal_selected'].format(truck_number, start_location, terminal_name)}\n\n"
+        f"{ROUTE_TRANSLATIONS[language]['terminal_selected'].format(truck_number, terminal_name)}\n\n"
         f"<b>{ROUTE_TRANSLATIONS[language]['enter_eta_date']}</b>"
     )
 
@@ -351,21 +261,16 @@ async def process_calendar_selection(
 
         # Get other data
         truck_number = user_data.get("truck_number", "")
-        start_location = user_data.get("start_location", "")
         terminal_name = user_data.get("terminal", "")
 
         # Set next state for time input
         await state.set_state(RouteStates.waiting_for_eta_time)
 
         # Show time selection keyboard
-        await show_time_picker(
-            callback.message, truck_number, start_location, terminal_name, language
-        )
+        await show_time_picker(callback.message, truck_number, terminal_name, language)
 
 
-async def show_time_picker(
-    message, truck_number, start_location, terminal_name, language
-):
+async def show_time_picker(message, truck_number, terminal_name, language):
     """
     Show time picker with inline keyboard.
     """
@@ -379,7 +284,7 @@ async def show_time_picker(
 
     # Show accumulated information with time picker
     response_text = (
-        f"{ROUTE_TRANSLATIONS[language]['terminal_selected'].format(truck_number, start_location, terminal_name)}\n\n"
+        f"{ROUTE_TRANSLATIONS[language]['terminal_selected'].format(truck_number, terminal_name)}\n\n"
         f"<b>{ROUTE_TRANSLATIONS[language]['enter_eta_time']}</b>"
     )
 
@@ -408,7 +313,6 @@ async def process_hour_selection(callback: CallbackQuery, state: FSMContext, lan
     # Get user data
     user_data = await state.get_data()
     truck_number = user_data.get("truck_number", "")
-    start_location = user_data.get("start_location", "")
     terminal_name = user_data.get("terminal", "")
 
     # Show minutes keyboard (00, 15, 30, 45)
@@ -425,7 +329,7 @@ async def process_hour_selection(callback: CallbackQuery, state: FSMContext, lan
 
     # Show accumulated information with minutes picker
     response_text = (
-        f"{ROUTE_TRANSLATIONS[language]['terminal_selected'].format(truck_number, start_location, terminal_name)}\n\n"
+        f"{ROUTE_TRANSLATIONS[language]['terminal_selected'].format(truck_number, terminal_name)}\n\n"
         f"<b>{ROUTE_TRANSLATIONS[language]['enter_eta_time']}</b>\n"
         f"Selected hour: {selected_hour}"
     )
@@ -463,7 +367,6 @@ async def process_minute_selection(
 
     # Get other data
     truck_number = user_data.get("truck_number", "")
-    start_location = user_data.get("start_location", "")
     terminal_name = user_data.get("terminal", "")
     eta_date = user_data.get("eta_date", "")
 
@@ -476,7 +379,7 @@ async def process_minute_selection(
 
     # Show prompt for container name input
     response_text = (
-        f"{ROUTE_TRANSLATIONS[language]['eta_selected'].format(truck_number, start_location, terminal_name, eta)}\n\n"
+        f"{ROUTE_TRANSLATIONS[language]['eta_selected'].format(truck_number, terminal_name, eta)}\n\n"
         f"<b>{ROUTE_TRANSLATIONS[language]['enter_container_name']}</b>"
     )
 
@@ -498,13 +401,10 @@ async def back_to_hours(callback: CallbackQuery, state: FSMContext, language):
     # Get user data
     user_data = await state.get_data()
     truck_number = user_data.get("truck_number", "")
-    start_location = user_data.get("start_location", "")
     terminal_name = user_data.get("terminal", "")
 
     # Show hour selection again
-    await show_time_picker(
-        callback.message, truck_number, start_location, terminal_name, language
-    )
+    await show_time_picker(callback.message, truck_number, terminal_name, language)
 
 
 @route_router.message(RouteStates.waiting_for_eta_date)
@@ -528,12 +428,11 @@ async def process_eta_date(message: Message, state: FSMContext):
 
     # Get other data for the message
     truck_number = user_data.get("truck_number", "")
-    start_location = user_data.get("start_location", "")
     terminal_name = user_data.get("terminal", "")
 
     # Show accumulated information with calendar
     response_text = (
-        f"{ROUTE_TRANSLATIONS[language]['terminal_selected'].format(truck_number, start_location, terminal_name)}\n\n"
+        f"{ROUTE_TRANSLATIONS[language]['terminal_selected'].format(truck_number, terminal_name)}\n\n"
         f"<b>{ROUTE_TRANSLATIONS[language]['enter_eta_date']}</b>"
     )
 
@@ -554,7 +453,6 @@ async def process_eta_time(message: Message, state: FSMContext):
     user_data = await state.get_data()
     language = user_data.get("language", "ru")
     truck_number = user_data.get("truck_number", "")
-    start_location = user_data.get("start_location", "")
     terminal_name = user_data.get("terminal", "")
 
     # Remind user to use the time picker
@@ -567,7 +465,6 @@ async def process_eta_time(message: Message, state: FSMContext):
     await show_time_picker(
         await message.answer("..."),
         truck_number,
-        start_location,
         terminal_name,
         language,
     )
@@ -585,7 +482,6 @@ async def process_container_name(message: Message, state: FSMContext, language):
     # Get user language and other data
     user_data = await state.get_data()
     truck_number = user_data.get("truck_number", "")
-    start_location = user_data.get("start_location", "")
     terminal_name = user_data.get("terminal", "")
     eta = user_data.get("eta", "")
 
@@ -600,7 +496,7 @@ async def process_container_name(message: Message, state: FSMContext, language):
 
     # Show accumulated information
     response_text = (
-        f"{ROUTE_TRANSLATIONS[language]['container_name_received'].format(truck_number, start_location, terminal_name, eta, container_name)}\n\n"
+        f"{ROUTE_TRANSLATIONS[language]['container_name_received'].format(truck_number, terminal_name, eta, container_name)}\n\n"
         f"<b>{ROUTE_TRANSLATIONS[language]['select_container_size']}</b>"
     )
 
@@ -629,7 +525,6 @@ async def process_container_size(callback: CallbackQuery, state: FSMContext, lan
     # Get user language and other data
     user_data = await state.get_data()
     truck_number = user_data.get("truck_number", "")
-    start_location = user_data.get("start_location", "")
     terminal_name = user_data.get("terminal", "")
     container_name = user_data.get("container_name", "")
     eta = user_data.get("eta", "")
@@ -648,7 +543,7 @@ async def process_container_size(callback: CallbackQuery, state: FSMContext, lan
 
     # Show accumulated information
     response_text = (
-        f"{ROUTE_TRANSLATIONS[language]['container_size_selected'].format(truck_number, start_location, terminal_name, eta, container_name, container_size)}\n\n"
+        f"{ROUTE_TRANSLATIONS[language]['container_size_selected'].format(truck_number, terminal_name, eta, container_name, container_size)}\n\n"
         f"<b>{ROUTE_TRANSLATIONS[language]['select_container_type']}</b>"
     )
 
@@ -677,7 +572,6 @@ async def process_container_type(callback: CallbackQuery, state: FSMContext, lan
     # Get user language and other data
     user_data = await state.get_data()
     truck_number = user_data.get("truck_number", "")
-    start_location = user_data.get("start_location", "")
     terminal_name = user_data.get("terminal", "")
     container_name = user_data.get("container_name", "")
     container_size = user_data.get("container_size", "")
@@ -689,7 +583,6 @@ async def process_container_type(callback: CallbackQuery, state: FSMContext, lan
     # Format the route details
     formatted_details = ROUTE_TRANSLATIONS[language]["route_details"].format(
         truck_number,
-        start_location,
         terminal_name,
         eta,
         container_name,
@@ -726,7 +619,6 @@ async def process_send_route_details(
         result = await route_service.create_route(
             telegram_id=callback.from_user.id,
             truck_number=data.get("truck_number", ""),
-            start_location=data.get("start_location", ""),
             terminal=data.get("terminal", ""),
             container_name=data.get("container_name", ""),
             container_size=data.get("container_size", ""),
@@ -734,13 +626,11 @@ async def process_send_route_details(
             eta=data.get(
                 "eta", ""
             ),  # This is now a datetime string in format "YYYY-MM-DD HH:MM"
-            access_token=data.get("access_token", ""),
         )
 
         if result.get("success"):
             success_message = ROUTE_TRANSLATIONS[language]["route_created"].format(
                 data["truck_number"],
-                data["start_location"],
                 data["terminal"],
                 data["eta"],  # Use the formatted version for display
                 data["container_name"],
@@ -791,28 +681,26 @@ async def process_send_route_details(
     lambda c: c.data and "/" in c.data and c.data.replace("/", "").isdigit()
 )
 async def process_truck_number_button(
-    callback: CallbackQuery, state: FSMContext, language
+    callback: CallbackQuery, state: FSMContext, api_client, language
 ):
-    """
-    Handle truck number button press, split by '/' and save both parts to state.
-    """
-    # Create location selection keyboard
-    keyboard = InlineKeyboardBuilder()
-    for location in LOCATION_CHOICES:
-        keyboard.button(text=location, callback_data=location)
-    keyboard.adjust(2)  # 2 buttons per row
-
     truck_number = callback.data
-    if "/" in truck_number:
-        front, back = truck_number.split("/")
-        await state.update_data(
-            waiting_for_truck_front_number=front, waiting_for_truck_back_number=back
-        )
-        await state.set_state(RouteStates.waiting_for_start_location)
-        await callback.message.edit_text(
-            ROUTE_TRANSLATIONS[language]["choose_start_location"],
-            parse_mode="HTML",
-            reply_markup=keyboard.as_markup(),
-        )
-    else:
-        await callback.answer("Invalid truck number format.", show_alert=True)
+    route_service = RouteService(api_client=api_client)
+
+    try:
+        terminals = await route_service.get_terminals(callback.from_user.id)
+        await state.update_data(terminals=terminals)
+    except Exception as e:
+        print(f"Error fetching terminals: {e}")
+
+    # Create terminal selection keyboard
+    keyboard = InlineKeyboardBuilder()
+    for terminal_name, terminal_id in terminals.items():
+        keyboard.button(text=terminal_name, callback_data=terminal_name)
+    keyboard.adjust(2)  # 2 buttons per row
+    await state.update_data(truck_number=truck_number)
+    await state.set_state(RouteStates.waiting_for_terminal)
+    await callback.message.edit_text(
+        ROUTE_TRANSLATIONS[language]["select_terminal"],
+        parse_mode="HTML",
+        reply_markup=keyboard.as_markup(),
+    )

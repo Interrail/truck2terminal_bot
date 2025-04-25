@@ -67,7 +67,6 @@ class MyApi(BaseClient):
     async def create_route(
         self,
         truck_number: str,
-        start_location: str,
         terminal_id: int,
         container_name: str,
         container_size: str,
@@ -79,7 +78,6 @@ class MyApi(BaseClient):
 
         Args:
             truck_number: Truck number
-            start_location: Starting location
             terminal_id: Terminal ID
             container_name: Container name
             container_size: Container size
@@ -94,7 +92,6 @@ class MyApi(BaseClient):
 
         data = {
             "truck_number": truck_number,
-            "start_location": start_location,
             "terminal_id": terminal_id,
             "container_name": container_name,
             "container_size": container_size,
@@ -110,7 +107,7 @@ class MyApi(BaseClient):
             url="/api/routes/telegram_create/",
             json=data,
         )
-
+        print("Result:", result)
         return result
 
     async def telegram_login(
@@ -211,7 +208,7 @@ class MyApi(BaseClient):
                     data = await response.text()
 
                 self.logger.debug(f"Response data: {data}")
-
+                print("Response data:", data)
                 # Treat 201 as success
                 if response.status in [200, 201]:
                     return response.status, data

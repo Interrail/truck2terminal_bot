@@ -14,19 +14,19 @@ class RouteService:
         self.api = api_client or MyApi()
         self._terminals_cache = None
 
-    async def get_terminals(self, access_token: str) -> Dict[str, int]:
+    async def get_terminals(self, telegram_id: int) -> Dict[str, int]:
         """
         Get terminals from API and return as a dictionary of name:id pairs.
 
         Args:
-            access_token: JWT access token
+            telegram_id: User's Telegram ID
 
         Returns:
             Dictionary with terminal names as keys and IDs as values
         """
         try:
             # Fetch terminals from API
-            terminals_data = await self.api.get_terminals(access_token)
+            terminals_data = await self.api.get_terminals(telegram_id)
 
             # Convert to name:id dictionary
             terminals_dict = {}
@@ -42,9 +42,7 @@ class RouteService:
             print(f"Error fetching terminals: {str(e)}")
             return TERMINALS
 
-    async def validate_terminal(
-        self, terminal_name: str, access_token: Optional[str] = None
-    ) -> int:
+    async def validate_terminal(self, terminal_name: str) -> int:
         """
         Validate terminal name and return its ID.
 
@@ -58,10 +56,6 @@ class RouteService:
         Raises:
             ValueError: If terminal name is invalid
         """
-        # If we have a token, try to refresh terminals
-        if access_token and not self._terminals_cache:
-            await self.get_terminals(access_token)
-
         # Check in cache first
         if self._terminals_cache and terminal_name in self._terminals_cache:
             return self._terminals_cache[terminal_name]
@@ -121,26 +115,25 @@ class RouteService:
     async def create_route(
         self,
         truck_number: str,
-        start_location: str,
         terminal: str,
         container_name: str,
         container_size: str,
         container_type: str,
         eta: str,
-        access_token: str,
         telegram_id: int,
     ) -> Dict[str, Any]:
         """Create a new route using the API."""
         try:
             # Validate inputs
-            terminal_id = await self.validate_terminal(terminal, access_token)
+            terminal_id = await self.validate_terminal(
+                terminal,
+            )
             self.validate_container_size(container_size)
             self.validate_container_type(container_type)
 
             # Call API to create route
             result = await self.api.create_route(
                 truck_number=truck_number,
-                start_location=start_location,
                 terminal_id=terminal_id,
                 container_name=container_name,
                 container_size=container_size,

@@ -26,6 +26,9 @@ async def track_location(message: Message, state: FSMContext):
     longitude = location.longitude
     horizontal_accuracy = getattr(location, "horizontal_accuracy", None)
 
+    # Always save latitude and longitude in FSM state
+    await state.update_data(latitude=latitude, longitude=longitude)
+
     logger.info(
         f"[TRACKING] Received location: lat={latitude}, lon={longitude}, accuracy={horizontal_accuracy}"
     )
@@ -48,11 +51,6 @@ async def track_location(message: Message, state: FSMContext):
                 f"Error sending location to route {route_id}: {str(e)}",
                 parse_mode="HTML",
             )
-    else:
-        await message.reply(
-            f"Location received:\nLatitude: {latitude}\nLongitude: {longitude}\nAccuracy: {horizontal_accuracy}",
-            parse_mode="HTML",
-        )
 
 
 @location_router.edited_message(F.location)
@@ -68,6 +66,9 @@ async def track_location_update(message: Message, state: FSMContext):
     latitude = location.latitude
     longitude = location.longitude
     horizontal_accuracy = getattr(location, "horizontal_accuracy", None)
+
+    # Always save latitude and longitude in FSM state
+    await state.update_data(latitude=latitude, longitude=longitude)
 
     logger.info(
         f"[TRACKING][EDIT] Updated location: lat={latitude}, lon={longitude}, accuracy={horizontal_accuracy}"
