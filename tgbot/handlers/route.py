@@ -804,7 +804,7 @@ async def process_truck_number_button(
 
     truck_number = callback.data
     if "/" in truck_number:
-        front, back = truck_number.split("/", 1)
+        front, back = truck_number.split("/")
         await state.update_data(
             waiting_for_truck_front_number=front, waiting_for_truck_back_number=back
         )
