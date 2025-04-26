@@ -75,7 +75,7 @@ async def track_location_update(message: Message, state: FSMContext):
     logger.info(
         f"[TRACKING][EDIT] Updated location: lat={latitude}, lon={longitude}, accuracy={horizontal_accuracy}"
     )
-    print("data:", data)
+
     if route_id:
         payload = {
             "route_id": route_id,
