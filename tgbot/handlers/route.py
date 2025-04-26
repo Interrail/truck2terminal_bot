@@ -632,9 +632,13 @@ async def process_send_route_details(
                 else ROUTE_TRANSLATIONS[language]["empty"],
             )
             await state.update_data(route_id=result["route_id"])
-
+            final_message = (
+                success_message
+                + "\n\n"
+                + ROUTE_TRANSLATIONS[language]["location_tracking"]
+            )
             await callback.message.edit_text(
-                success_message,
+                final_message,
                 parse_mode="HTML",
             )
 
@@ -671,7 +675,7 @@ async def process_send_route_details(
 
 
 @route_router.callback_query(
-    lambda c: c.data and "/" in c.data and c.data.replace("/", "").isdigit()
+    lambda c: c.data and "/" in c.data and c.data.replace("/", "")
 )
 async def process_truck_number_button(
     callback: CallbackQuery, state: FSMContext, api_client, language
