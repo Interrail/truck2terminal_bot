@@ -108,14 +108,6 @@ async def start_route_creation(
 ):
     """Start the route creation process with truck number input (front and back)"""
 
-    state_data = await state.get_data()
-    if not state_data.get("latitude") or not state_data.get("longitude"):
-        await message.reply(
-            ROUTE_TRANSLATIONS[language]["location_tracking"],
-            parse_mode="HTML",
-        )
-        return
-
     await state.set_state(RouteStates.waiting_for_truck_front_number)
     # Always save truck number in FSM state
 
@@ -639,6 +631,7 @@ async def process_send_route_details(
                 if data["container_type"] == "laden"
                 else ROUTE_TRANSLATIONS[language]["empty"],
             )
+            await state.update_data(route_id=result["route_id"])
 
             await callback.message.edit_text(
                 success_message,

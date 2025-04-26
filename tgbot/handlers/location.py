@@ -44,7 +44,9 @@ async def track_location(message: Message, state: FSMContext):
         try:
             api_client = MyApi()
             await api_client.post_location(payload)
-
+            logger.info(
+                f"[TRACKING] Updated location: route {route_id}, lat={latitude}, lon={longitude}, accuracy={horizontal_accuracy}"
+            )
         except Exception as e:
             logger.error(f"[TRACKING] Error sending location: {str(e)}")
             await message.reply(
@@ -73,7 +75,7 @@ async def track_location_update(message: Message, state: FSMContext):
     logger.info(
         f"[TRACKING][EDIT] Updated location: lat={latitude}, lon={longitude}, accuracy={horizontal_accuracy}"
     )
-
+    print("data:", data)
     if route_id:
         payload = {
             "route_id": route_id,
@@ -85,6 +87,8 @@ async def track_location_update(message: Message, state: FSMContext):
         try:
             api_client = MyApi()
             await api_client.post_location(payload)
-
+            logger.info(
+                f"[TRACKING][EDIT] Updated location: route {route_id}, lat={latitude}, lon={longitude}, accuracy={horizontal_accuracy}"
+            )
         except Exception as e:
             logger.error(f"[TRACKING][EDIT] Error sending location: {str(e)}")
