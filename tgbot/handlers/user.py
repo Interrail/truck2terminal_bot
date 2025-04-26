@@ -300,9 +300,9 @@ async def process_last_name(message: Message, state: FSMContext, api_client, lan
         summary
         + "\n\n"
         + (
-            "Yuk mashina raqamini kiriting oldi orqa qismini shunaqa ko`rinishda kirgizing 01W540MC/6413BA10:"
+            "Yuk mashina raqamini kiriting oldi orqa qismini shunaqa ko`rinishda kirgizing 01W540MC/106413BA:"
             if language == "uz"
-            else "Введите номер грузовика переднее и заднее часть номера в таком формате 01W540MC/6413BA10:"
+            else "Введите номер грузовика переднее и заднее часть номера в таком формате 01W540MC/106413BA:"
         ),
         reply_markup=ReplyKeyboardMarkup(
             keyboard=[[]], resize_keyboard=True, one_time_keyboard=True
