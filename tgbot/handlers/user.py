@@ -62,32 +62,14 @@ async def cmd_start(
             parse_mode="HTML",
         )
     else:  # 🚫 Not registered yet
-        await state.set_state(RegistrationStates.waiting_for_language)
+        # Skip language selection and set "uz" as default
+        await state.update_data(language="uz")
+        await state.set_state(RegistrationStates.waiting_for_phone)
         await message.answer(
-            "🛻 <b>Truck2Terminalga xush kelibsiz!</b>\n\n🌍 Iltimos, tilni tanlang:",
-            reply_markup=get_language_keyboard(),
+            "🛻 <b>Truck2Terminalga xush kelibsiz!</b>\n\n📱 Telefon raqamingizni ulashing:",
+            reply_markup=get_phone_keyboard("uz"),
             parse_mode="HTML",
         )
-
-
-# Language selected
-@registration_router.message(RegistrationStates.waiting_for_language)
-async def process_language(message: Message, state: FSMContext):
-    selected_language = LANGUAGES.get(message.text)
-    if not selected_language:
-        await message.answer(
-            "⚠️ Iltimos, klaviaturadan tilni tanlang.",
-            reply_markup=get_language_keyboard(),
-        )
-        return
-
-    await state.update_data(language=selected_language)
-    await state.set_state(RegistrationStates.waiting_for_phone)
-    await message.answer(
-        f"✅ Til tanlandi! (1/5)\n\n📱 Telefon raqamingizni ulashing:",
-        reply_markup=get_phone_keyboard(selected_language),
-        parse_mode="HTML",
-    )
 
 
 # Phone number received
@@ -105,7 +87,7 @@ async def process_phone(message: Message, state: FSMContext):
     await state.update_data(phone=message.contact.phone_number)
     await state.set_state(RegistrationStates.waiting_for_first_name)
     await message.answer(
-        "✅ Telefon raqami qabul qilindi! (2/5)\n\n👤 Ismingizni yozing:",
+        "✅ Telefon raqami qabul qilindi! (1/4)\n\n👤 Ismingizni yozing:",
         parse_mode="HTML",
     )
 
@@ -120,7 +102,7 @@ async def process_first_name(message: Message, state: FSMContext):
     await state.update_data(first_name=message.text.strip())
     await state.set_state(RegistrationStates.waiting_for_last_name)
     await message.answer(
-        "✅ Ism qabul qilindi! (3/5)\n\n👥 Endi familiyangizni yozing:",
+        "✅ Ism qabul qilindi! (2/4)\n\n👥 Endi familiyangizni yozing:",
         parse_mode="HTML",
     )
 
@@ -135,7 +117,7 @@ async def process_last_name(message: Message, state: FSMContext):
     await state.update_data(last_name=message.text.strip())
     await state.set_state(RegistrationStates.waiting_for_truck_number)
     await message.answer(
-        "✅ Familiya qabul qilindi! (4/5)\n\n🚛 Yuk mashinangiz raqamini yuboring.\n\n<b>Namuna:</b> 01W540MC/106413BA",
+        "✅ Familiya qabul qilindi! (3/4)\n\n🚛 Yuk mashinangiz raqamini yuboring.\n\n<b>Namuna:</b> 01W540MC/106413BA",
         parse_mode="HTML",
     )
 
@@ -166,14 +148,19 @@ async def process_truck_number(
 
     try:
         api = api_client or MyApi()
-        await api.telegram_auth(**registration_data)
+        try:
+            await api.telegram_auth(**registration_data)
 
-        await message.answer(
-            f"✅ Ro'yxatdan o'tish yakunlandi! (5/5)\n\n👋 Xush kelibsiz, {data.get('first_name')}!\n\n📋 Quyidagi menyudan foydalaning:",
-            reply_markup=main_menu_keyboard(data.get("language")),
-            parse_mode="HTML",
-        )
-        await state.clear()
+            await message.answer(
+                f"✅ Ro'yxatdan o'tish yakunlandi! (4/4)\n\n👋 Xush kelibsiz, {data.get('first_name')}!\n\n📋 Quyidagi menyudan foydalaning:",
+                reply_markup=main_menu_keyboard(data.get("language")),
+                parse_mode="HTML",
+            )
+            await state.clear()
+        finally:
+            # Ensure the API client is properly closed if we created it
+            if not api_client:
+                await api.close()
 
     except Exception as e:
         await message.answer(
