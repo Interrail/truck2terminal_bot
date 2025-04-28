@@ -57,7 +57,7 @@ async def cmd_start(
 
     if truck_number:  # ✅ Already registered
         await message.answer(
-            f"👋 Xush kelibsiz qaytib, <b>{message.from_user.full_name}</b>! 🚛",
+            f"👋 Xush kelibsiz qaytib, <b>{message.from_user.full_name}</b>! 🚛\n📍 Agar joylashuv ulanmagan bo`lsa iltimos 📱 joylashuvni ulashing 🗺️",
             reply_markup=main_menu_keyboard(language),
             parse_mode="HTML",
         )
