@@ -21,7 +21,7 @@ INLINE_TRANSLATIONS = {
 }
 
 
-def simple_menu_keyboard(language_code: str = "ru") -> InlineKeyboardMarkup:
+def main_menu_keyboard(language_code: str = "ru") -> InlineKeyboardMarkup:
     """
     Creates a simple menu keyboard with common options.
 

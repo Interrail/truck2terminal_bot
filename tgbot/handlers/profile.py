@@ -3,7 +3,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 
 from infrastructure.some_api.api import MyApi
-from tgbot.keyboards.reply import REPLY_TRANSLATIONS, simple_menu_keyboard
+from tgbot.keyboards.reply import REPLY_TRANSLATIONS, main_menu_keyboard
 
 profile_router = Router()
 
@@ -11,8 +11,8 @@ profile_router = Router()
 @profile_router.message(
     lambda msg: msg.text
     in [
-        REPLY_TRANSLATIONS["uz"]["my_profile"],
-        REPLY_TRANSLATIONS["ru"]["my_profile"],
+        f"👤 {REPLY_TRANSLATIONS['uz']['my_profile']}",
+        f"👤 {REPLY_TRANSLATIONS['ru']['my_profile']}",
     ]
 )
 async def show_my_profile(message: Message, state: FSMContext, api_client, language):
@@ -20,7 +20,6 @@ async def show_my_profile(message: Message, state: FSMContext, api_client, langu
     Handler to show user's profile info when 'my_profile' button is pressed.
     """
 
-    print("Fetching user profile...")
     # Use the shared API client from middleware instead of creating a new one
     api = api_client or MyApi()
     try:
@@ -43,12 +42,12 @@ async def show_my_profile(message: Message, state: FSMContext, api_client, langu
                 f"<b>🌐 Язык:</b> {profile.get('preferred_language', '')}\n"
             )
         await message.answer(
-            profile_msg, parse_mode="HTML", reply_markup=simple_menu_keyboard(language)
+            profile_msg, parse_mode="HTML", reply_markup=main_menu_keyboard(language)
         )
     except Exception:
         await message.answer(
             "Profil ma'lumotlarini olishda xatolik yuz berdi. Iltimos, qayta urinib ko'ring."
             if language == "uz"
             else "Произошла ошибка при получении профиля. Пожалуйста, попробуйте еще раз.",
-            reply_markup=simple_menu_keyboard(language),
+            reply_markup=main_menu_keyboard(language),
         )

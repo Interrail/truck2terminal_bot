@@ -125,7 +125,7 @@ def terminal_location_keyboard(
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
-@terminals_router.message(F.text.in_(["Терминалы", "Terminallar"]))
+@terminals_router.message(F.text.in_(["🏢 Терминалы", "🏢 Terminallar"]))
 async def terminals_menu(message: Message, state: FSMContext, api_client, language):
     # Set state to viewing terminals
     await state.set_state(TerminalStates.viewing_terminals)
@@ -253,7 +253,9 @@ async def terminal_location(
 
 
 @terminals_router.callback_query(BackToTerminalsCallbackFactory.filter())
-async def back_to_terminals(call: CallbackQuery, state: FSMContext, api_client, language):
+async def back_to_terminals(
+    call: CallbackQuery, state: FSMContext, api_client, language
+):
     """
     Handler for back button - returns to terminal list.
     """

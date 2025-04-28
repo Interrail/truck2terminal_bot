@@ -156,6 +156,68 @@ class MyApi(BaseClient):
         )
         return result
 
+    async def get_recent_trucks(self, telegram_id: int, limit: int = 3) -> List[str]:
+        """
+        Get recent truck numbers used by this driver.
+
+        Args:
+            telegram_id: User's Telegram ID
+            limit: Maximum number of recent trucks to return
+
+        Returns:
+            List of recent truck numbers as strings
+        """
+        payload = {
+            "telegram_id": telegram_id,
+            "bot_secret": self.bot_secret,
+            "limit": limit,
+        }
+        try:
+            _, result = await self._make_request(
+                method="POST",
+                url="/api/routes/recent-trucks/",
+                json=payload,
+            )
+            # Return the list of truck numbers
+            return result.get("trucks", [])
+        except Exception as e:
+            self.logger.error(f"Error fetching recent trucks: {str(e)}")
+            # If API endpoint doesn't exist yet or other error, return empty list
+            return []
+
+    async def get_recent_back_numbers(
+        self, telegram_id: int, front_number: str, limit: int = 3
+    ) -> List[str]:
+        """
+        Get recent back numbers used with a specific front number.
+
+        Args:
+            telegram_id: User's Telegram ID
+            front_number: Front part of the truck number
+            limit: Maximum number of recent back numbers to return
+
+        Returns:
+            List of recent back numbers as strings
+        """
+        payload = {
+            "telegram_id": telegram_id,
+            "bot_secret": self.bot_secret,
+            "front_number": front_number,
+            "limit": limit,
+        }
+        try:
+            _, result = await self._make_request(
+                method="POST",
+                url="/api/routes/recent-back-numbers/",
+                json=payload,
+            )
+            # Return the list of back numbers
+            return result.get("back_numbers", [])
+        except Exception as e:
+            self.logger.error(f"Error fetching recent back numbers: {str(e)}")
+            # If API endpoint doesn't exist yet or other error, return empty list
+            return []
+
     async def get_terminal(self, terminal_id: int, telegram_id: int) -> Dict[str, Any]:
         """Get details of a specific terminal using terminal_id and bot_secret."""
         payload = {"telegram_id": telegram_id, "bot_secret": self.bot_secret}
@@ -173,13 +235,21 @@ class MyApi(BaseClient):
             url="/api/routes/locations/telegram_update/",
             json=payload,
         )
-        print(result)
+        return result
+
+    async def get_latest_location(self, telegram_id: int) -> Dict[str, Any]:
+        """Get the latest location of a user using telegram_id and bot_secret."""
+
+        _, result = await self._make_request(
+            method="GET",
+            url=f"/api/routes/locations/telegram_latest/{telegram_id}/",
+        )
         return result
 
     @backoff.on_exception(
         backoff.expo,
         aiohttp.ClientError,
-        max_time=20,
+        max_time=5,
         giveup=lambda e: hasattr(e, "status") and e.status in [400, 401, 403, 404],
     )
     async def _make_request(

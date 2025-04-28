@@ -25,28 +25,25 @@ REPLY_TRANSLATIONS = {
 }
 
 
-def simple_menu_keyboard(language_code: str = "ru") -> ReplyKeyboardMarkup:
+def main_menu_keyboard(lang="uz"):
     """
-    Creates a simple menu keyboard with common options.
+    Generate main menu keyboard with multilanguage support
 
     Args:
-        language_code: User's selected language code (defaults to Russian)
+        lang (str): Language code ('uz' or 'ru')
 
     Returns:
-        ReplyKeyboardMarkup: A keyboard with menu buttons.
+        ReplyKeyboardMarkup: Keyboard with translated buttons
     """
-    keyboard = ReplyKeyboardMarkup(
-        keyboard=[
-            [
-                KeyboardButton(text=REPLY_TRANSLATIONS[language_code]["add_route"]),
-                KeyboardButton(text=REPLY_TRANSLATIONS[language_code]["terminal"]),
-            ],
-            [
-                KeyboardButton(text=REPLY_TRANSLATIONS[language_code]["my_profile"]),
-                KeyboardButton(text=REPLY_TRANSLATIONS[language_code]["support"]),
-            ],
-        ],
-        resize_keyboard=True,
-        one_time_keyboard=False,
-    )
-    return keyboard
+    if lang not in REPLY_TRANSLATIONS:
+        lang = "uz"  # Default to Uzbek if language not supported
+
+    translations = REPLY_TRANSLATIONS[lang]
+
+    keyboard = [
+        [KeyboardButton(text=f"➕ {translations['add_route']}")],
+        [KeyboardButton(text=f"👤 {translations['my_profile']}")],
+        [KeyboardButton(text=f"🏢 {translations['terminal']}")],
+        [KeyboardButton(text=f"❓ {translations['support']}")],
+    ]
+    return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)

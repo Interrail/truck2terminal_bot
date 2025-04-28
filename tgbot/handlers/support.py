@@ -9,8 +9,7 @@ from aiogram.types import (
 )
 
 from infrastructure.some_api.api import MyApi
-from tgbot.filters.admin import AdminFilter
-from tgbot.keyboards.reply import REPLY_TRANSLATIONS, simple_menu_keyboard
+from tgbot.keyboards.reply import main_menu_keyboard
 
 support_router = Router()
 
@@ -56,7 +55,14 @@ SUPPORT_TRANSLATIONS = {
 }
 
 
-@support_router.message(F.text.in_({SUPPORT_TRANSLATIONS["uz"]["support"], SUPPORT_TRANSLATIONS["ru"]["support"]}))
+@support_router.message(
+    F.text.in_(
+        {
+            f"❓ {SUPPORT_TRANSLATIONS['uz']['support']}",
+            f"❓ {SUPPORT_TRANSLATIONS['ru']['support']}",
+        }
+    )
+)
 async def start_support_request(message: Message, state: FSMContext, language):
     """
     Start the support request process.
@@ -103,12 +109,14 @@ async def cancel_support_request(callback: CallbackQuery, state: FSMContext, lan
     # Show main menu
     await callback.message.answer(
         "👋",
-        reply_markup=simple_menu_keyboard(language),
+        reply_markup=main_menu_keyboard(language),
     )
 
 
 @support_router.message(SupportStates.waiting_for_question)
-async def process_support_question(message: Message, state: FSMContext, api_client, language):
+async def process_support_question(
+    message: Message, state: FSMContext, api_client, language
+):
     """
     Process the support question and notify admins.
     """
@@ -139,7 +147,7 @@ async def process_support_question(message: Message, state: FSMContext, api_clie
     # Confirm receipt of question
     await message.reply(
         SUPPORT_TRANSLATIONS[language]["question_received"],
-        reply_markup=simple_menu_keyboard(language),
+        reply_markup=main_menu_keyboard(language),
         parse_mode="HTML",
     )
 
@@ -271,8 +279,17 @@ async def process_admin_reply(message: Message, state: FSMContext, language):
 
 
 # Command for admins to view active support requests
-@support_router.message(F.text.in_({SUPPORT_TRANSLATIONS["uz"]["list_requests"], SUPPORT_TRANSLATIONS["ru"]["list_requests"]}))
-async def list_support_requests(message: Message, state: FSMContext, api_client, language):
+@support_router.message(
+    F.text.in_(
+        {
+            SUPPORT_TRANSLATIONS["uz"]["list_requests"],
+            SUPPORT_TRANSLATIONS["ru"]["list_requests"],
+        }
+    )
+)
+async def list_support_requests(
+    message: Message, state: FSMContext, api_client, language
+):
     """
     List all active support requests for admin.
     """

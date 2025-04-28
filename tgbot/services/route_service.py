@@ -42,6 +42,49 @@ class RouteService:
             print(f"Error fetching terminals: {str(e)}")
             return TERMINALS
 
+    async def get_recent_trucks(self, telegram_id: int, limit: int = 3) -> list:
+        """
+        Get recent truck numbers used by this driver.
+        
+        Args:
+            telegram_id: User's Telegram ID
+            limit: Maximum number of recent trucks to return
+            
+        Returns:
+            List of recent truck numbers as strings
+        """
+        try:
+            # Try to get recent trucks from API
+            recent_trucks = await self.api.get_recent_trucks(telegram_id, limit)
+            return recent_trucks
+        except Exception as e:
+            # If API call fails, return empty list
+            print(f"Error fetching recent trucks: {str(e)}")
+            return []
+            
+    async def get_recent_back_numbers(self, telegram_id: int, front_number: str, limit: int = 3) -> list:
+        """
+        Get recent back numbers used with a specific front number.
+        
+        Args:
+            telegram_id: User's Telegram ID
+            front_number: Front part of the truck number
+            limit: Maximum number of recent back numbers to return
+            
+        Returns:
+            List of recent back numbers as strings
+        """
+        try:
+            # Try to get recent back numbers from API
+            recent_back_numbers = await self.api.get_recent_back_numbers(
+                telegram_id, front_number, limit
+            )
+            return recent_back_numbers
+        except Exception as e:
+            # If API call fails, return empty list
+            print(f"Error fetching recent back numbers: {str(e)}")
+            return []
+
     async def validate_terminal(self, terminal_name: str) -> int:
         """
         Validate terminal name and return its ID.
